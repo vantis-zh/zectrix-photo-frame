@@ -1,0 +1,201 @@
+# Youn Ink Four Color
+
+这是一个面向 ESP32-S3 墨水屏设备的个人 AI 助手项目。当前主线由三部分组成：ESP32 固件、Python 后端服务、以及图片/待办/设备管理页面。
+
+项目重点不是一个通用 npm 包，而是一套可以真实运行在墨水屏设备上的系统：语音对话、TTS 播放、待办同步、天气/新闻/日历/电子书/相册页面、AP 传图、OTA 固件管理，以及适配四色屏的 RawDraw UI。
+
+## 当前状态
+
+- 后端已经切换为 `server/` 下的 Python 服务，根目录旧 Node `scripts/` 已删除。
+- 固件主界面使用 RawDraw 渲染，默认按四色屏设计，同时保留 1bpp 黑白屏兼容。
+- 主题暂时只保留一个默认视觉方向：偏任天堂感的四色主题，强调红、黄、黑、白的语义使用。
+- 图片传输支持 1bpp 黑白与 2bpp 四色 BWRY 两种格式。
+- 根目录 `.gitignore` 已排除构建产物、日志、pid、数据库、本地配置和密钥文件。
+
+## 目录结构
+
+```text
+.
+├── firmware/        ESP32-IDF 固件，RawDraw UI、页面渲染、屏幕驱动、AP 传图
+├── server/          Python 后端，WebSocket 对话、TTS、Discovery、图片推送、OTA API
+├── frontend/        管理前端源码，使用独立的 package/pnpm 工作流
+├── docs/            历史设计文档和实现记录
+├── documents/       项目资料
+└── package.json     仅保留仓库级辅助命令，不再作为旧 Node 服务入口
+```
+
+注意：`firmware/scripts/` 和 `frontend/scripts/` 仍然有用，分别属于固件工具和前端工具；删除的是根目录历史遗留的 `scripts/`。
+
+## 后端服务
+
+后端入口是 `server/llmserve.py`，推荐通过 `server/start.sh` 管理。服务默认端口：
+
+| 端口 | 协议 | 用途 |
+| --- | --- | --- |
+| `9001` | WebSocket | ESP32 语音、LLM、TTS、同步消息 |
+| `8766` | UDP | 设备发现 |
+| `8766` | HTTP | 图片推送、设备图片管理、OTA API |
+| `8090` | HTTP | 独立管理服务，可选 |
+
+### 安装依赖
+
+```bash
+cd server
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 启动服务
+
+```bash
+export DASHSCOPE_API_KEY=你的百炼APIKey
+cd server
+./start.sh start
+```
+
+常用命令：
+
+```bash
+cd server
+./start.sh status
+./start.sh logs
+./start.sh restart
+./start.sh stop
+```
+
+也可以从仓库根目录调用：
+
+```bash
+npm run server:start
+npm run server:status
+npm run server:logs
+```
+
+### 本地模拟设备
+
+```bash
+cd server
+python3 mock_client.py --server ws://127.0.0.1:9001
+```
+
+## 图片和设备管理
+
+图片 HTTP API 由 `server/push_image.py` 挂到 `8766` 端口。它支持：
+
+- 上传图片文件并转换后推送到设备。
+- 选择 `1bpp` 黑白格式或 `2bpp` 四色 BWRY 格式。
+- 查询设备图片列表。
+- 删除设备图片。
+- 上传固件并提供 OTA 下载。
+
+常用接口：
+
+```bash
+curl http://localhost:8766/api/status
+curl http://localhost:8766/api/images
+```
+
+上传图片示例：
+
+```bash
+curl -X POST http://localhost:8766/api/upload_image \
+  -F "image=@/path/to/photo.jpg" \
+  -F "format=bwry2bpp" \
+  -F "title=照片标题"
+```
+
+设备进入 AP 传图模式后，手机连接设备热点并访问：
+
+```text
+http://192.168.4.1
+```
+
+## 固件
+
+固件位于 `firmware/`，基于 ESP-IDF。默认面向 ZecTrix ESP32-S3 4.2 寸墨水屏，支持四色 BWRY 屏，也保留 1bpp 黑白屏配置。
+
+### 编译
+
+```bash
+cd firmware
+source ~/Documents/esp/v6.0/esp-idf/export.sh
+idf.py build
+```
+
+根目录辅助命令：
+
+```bash
+npm run firmware:build
+```
+
+### 屏幕配置
+
+固件 Kconfig 中有屏幕类型选择：
+
+```text
+ZECTRIX_EPD_PANEL_4COLOR_SSD2683  四色 BWRY 屏
+ZECTRIX_EPD_PANEL_1BPP            黑白 1bpp 屏
+```
+
+如果要刷回旧黑白屏，先在 `idf.py menuconfig` 中切到 `1bpp black/white EPD`，再重新构建烧录。RawDraw 主题层会把红/黄语义色降级成黑白可读样式。
+
+## UI 说明
+
+固件 UI 目前走 RawDraw 组件体系，重点页面包括：
+
+- 对话：显示用户语音、识别状态、AI 回复。
+- 待办：本地展示、服务端同步、完成/删除/编辑。
+- 设置：音量、亮度、主题、网络、同步、OTA 等。
+- 相册：缩略图列表、大图展示、AP 传图入口。
+- 天气/天气详情、新闻、黄历、年度进度、日历、电子书、日志。
+- 快速切换 Overlay：用于页面间快速跳转。
+
+四色屏主题层通过语义样式绘制组件，不建议在业务页面里继续新增裸 `RED/YELLOW/BLACK/WHITE`。新增 UI 时优先使用 RawDraw 组件和 theme token。
+
+## 环境变量
+
+常用后端环境变量：
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `DASHSCOPE_API_KEY` | 无 | 百炼 API Key，启动后端必需 |
+| `LISTEN_HOST` | `0.0.0.0` | WebSocket 监听地址 |
+| `LISTEN_PORT` | `9001` | WebSocket 端口 |
+| `DISCOVERY_PORT` | `8766` | UDP 发现端口 |
+| `PUSH_IMAGE_PORT` | `8766` | 图片/OTA HTTP API 端口 |
+| `TTS_WS_CHUNK_BYTES` | `8000` | TTS 推送分片大小 |
+| `TTS_WS_CHUNK_GAP_SEC` | `0.01` | TTS 分片发送间隔 |
+
+不要提交 `.env`、数据库、日志、pid、构建目录和固件产物。
+
+## Git 提交范围
+
+建议提交：
+
+- `firmware/main/`、`firmware/components/`、`firmware/partitions/` 等固件源码。
+- `server/*.py`、`server/static/`、`server/requirements.txt`、`server/DEPLOY.md`。
+- `frontend/src/`、`frontend/package.json`、`frontend/pnpm-lock.yaml` 等前端源码。
+- 根目录 README、文档、配置模板。
+
+不要提交：
+
+- `firmware/build/`
+- `firmware/managed_components/`
+- `firmware/sdkconfig`
+- `firmware/releases/`
+- `server/.env`
+- `server/todo.db`
+- `server/*.pid`
+- `server/*.log`
+- `frontend/.env*`
+- `frontend/dist/`
+- `node_modules/`
+
+## 远程仓库
+
+当前仓库已初始化为普通 Git 仓库，远程为 Codeup：
+
+```text
+https://codeup.aliyun.com/697618326286f1d6b900fd02/forothers/youn-ink-fourcolor-repo.git
+```

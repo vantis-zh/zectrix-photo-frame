@@ -1,0 +1,14 @@
+build/
+.claude/
+__pycache__/
+*.pyc
+managed_components/
+releases/
+debugscreenshot/
+sdkconfig.old
+sdkconfig
+=
+*.log
+*.bin
+*.elf
+*.map
