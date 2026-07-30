@@ -21,8 +21,8 @@
 
 #define TAG "WifiConfigurationAp"
 
-#define WIFI_CONNECTED_BIT BIT0
-#define WIFI_FAIL_BIT      BIT1
+#define WIFI_GOT_IP_BIT BIT0
+#define WIFI_FAIL_BIT   BIT1
 
 extern const char index_html_start[] asm("_binary_wifi_configuration_html_start");
 extern const char done_html_start[] asm("_binary_wifi_configuration_done_html_start");
@@ -707,7 +707,7 @@ bool WifiConfigurationAp::ConnectToWifi(const std::string &ssid, const std::stri
     
     is_connecting_ = true;
     esp_wifi_scan_stop();
-    xEventGroupClearBits(event_group_, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
+    xEventGroupClearBits(event_group_, WIFI_GOT_IP_BIT | WIFI_FAIL_BIT);
 
     wifi_config_t wifi_config;
     bzero(&wifi_config, sizeof(wifi_config));
@@ -728,7 +728,7 @@ bool WifiConfigurationAp::ConnectToWifi(const std::string &ssid, const std::stri
     // Wait for the connection to complete for 10 or 25 seconds
     EventBits_t bits = xEventGroupWaitBits(
         event_group_,
-        WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
+        WIFI_GOT_IP_BIT | WIFI_FAIL_BIT,
         pdTRUE,
         pdFALSE,
 #ifdef CONFIG_SOC_WIFI_SUPPORT_5G
@@ -739,7 +739,7 @@ bool WifiConfigurationAp::ConnectToWifi(const std::string &ssid, const std::stri
     );
     is_connecting_ = false;
 
-    if (bits & WIFI_CONNECTED_BIT) {
+    if (bits & WIFI_GOT_IP_BIT) {
         ESP_LOGI(TAG, "Connected to WiFi %s", ssid.c_str());
         esp_wifi_disconnect();
         return true;
@@ -770,7 +770,7 @@ void WifiConfigurationAp::WifiEventHandler(void* arg, esp_event_base_t event_bas
         wifi_event_ap_stadisconnected_t* event = (wifi_event_ap_stadisconnected_t*) event_data;
         ESP_LOGI(TAG, "Station " MACSTR " left, AID=%d", MAC2STR(event->mac), event->aid);
     } else if (event_id == WIFI_EVENT_STA_CONNECTED) {
-        xEventGroupSetBits(self->event_group_, WIFI_CONNECTED_BIT);
+        ESP_LOGI(TAG, "Associated with WiFi, waiting for IP address");
     } else if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
         xEventGroupSetBits(self->event_group_, WIFI_FAIL_BIT);
     } else if (event_id == WIFI_EVENT_SCAN_DONE) {
@@ -792,7 +792,7 @@ void WifiConfigurationAp::IpEventHandler(void* arg, esp_event_base_t event_base,
     if (event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "Got IP:" IPSTR, IP2STR(&event->ip_info.ip));
-        xEventGroupSetBits(self->event_group_, WIFI_CONNECTED_BIT);
+        xEventGroupSetBits(self->event_group_, WIFI_GOT_IP_BIT);
     }
 }
 
