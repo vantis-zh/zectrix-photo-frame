@@ -313,7 +313,9 @@ static FrameDiffResult analyze_frame_diff(
         return result;
     }
 
-    const int bytes_per_row = (width + 7) >> 3;
+    // RawDraw always keeps a 2bpp semantic framebuffer, including when a
+    // 1bpp panel is selected and down-converted before transmission.
+    const int bytes_per_row = (width * 2 + 7) >> 3;
     const size_t total_bytes = bytes_per_row * height;
     const size_t total_bits = total_bytes * 8;
 
