@@ -4,6 +4,12 @@
 
 项目重点不是一个通用 npm 包，而是一套可以真实运行在墨水屏设备上的系统：语音对话、TTS 播放、待办同步、天气/新闻/日历/电子书/相册页面、AP 传图、OTA 固件管理，以及适配四色屏的 RawDraw UI。
 
+## 2BP 四色图像链路
+
+![Youn Ink Four Color 2BP BWRY architecture](README-2bp-architecture.png)
+
+相册图片可由 PC/NAS 管理端或设备 AP 页面进入服务端，转换为 `2BP BWRY`（黑、白、红、黄）后通过 Wi-Fi 推送到 ESP32-S3 四色墨水屏。本仓库的 2BP 四色链路与 NOTE4 的 4BP 黑白灰阶相册独立维护：面板颜色、像素格式和刷新驱动均不同。
+
 ## 当前状态
 
 - 后端已经切换为 `server/` 下的 Python 服务，根目录旧 Node `scripts/` 已删除。
