@@ -163,8 +163,10 @@ void Application::Initialize() {
     }
 
     ESP_LOGI(kTag, "Rawdraw gallery UI initialized");
+    wake_cause_ = esp_sleep_get_wakeup_cause();
     if (esp_reset_reason() == ESP_RST_DEEPSLEEP) {
-        ESP_LOGI(kTag, "Wake from deep sleep: flash activity LED and refresh UI");
+        ESP_LOGI(kTag, "Wake from deep sleep: cause=%d (2=ext0/BOOT, 4=timer), refresh UI",
+                 static_cast<int>(wake_cause_));
         board.FlashActivityLed();
         if (rawdraw_ui_manager_) {
             rawdraw_ui_manager_->RequestActivePageRefresh();
@@ -178,16 +180,32 @@ void Application::Initialize() {
                 ESP_LOGI(kTag, "WiFi connected: %s", data.c_str());
                 wifi_connected_.store(true, std::memory_order_release);
                 StartSntpClockSyncOnce();
-                // First remote photo fetch after boot (24h timer keeps it
-                // going afterwards). BOOT click on gallery also triggers it.
-                RemotePhotoService::GetInstance().RequestRefresh("wifi-connected");
+                // First remote photo fetch after boot. BOOT click on the
+                // gallery also triggers it. Daily auto refresh is handled
+                // by the midnight RTC wake-up (see EnterScheduledSleep).
+                if (esp_reset_reason() == ESP_RST_DEEPSLEEP &&
+                    wake_cause_ == ESP_SLEEP_WAKEUP_TIMER) {
+                    // Scheduled midnight refresh: fetch automatically.
+                    ESP_LOGI(kTag, "midnight RTC wake-up: fetching new photo");
+                    RemotePhotoService::GetInstance().RequestRefresh("midnight-timer");
+                } else {
+                    // Manual wake (BOOT) or power-on: show stored photo,
+                    // no automatic fetch.
+                    ESP_LOGI(kTag, "wake-up not timer-scheduled: keep stored photo");
+                }
                 if (rawdraw_ui_manager_ &&
                     rawdraw_ui_manager_->GetCurrentPage() == ui::RawDrawPageId::APTransfer) {
                     ESP_LOGI(kTag, "WiFi connected while config page is visible, returning to gallery");
                     rawdraw_ui_manager_->SwitchPage(ui::RawDrawPageId::Gallery);
                 }
                 UpdateStatusBarForUi();
-                ArmSyncSleepTimer();
+                // After a scheduled midnight refresh, go back to sleep
+                // quickly (photo already fetched/EPD refreshing); other
+                // boots keep the user-configured sync interval.
+                ArmSyncSleepTimer(esp_reset_reason() == ESP_RST_DEEPSLEEP &&
+                                          wake_cause_ == ESP_SLEEP_WAKEUP_TIMER
+                                      ? kPostRefreshAwakeMinutes
+                                      : -1);
                 break;
             case NetworkEvent::Disconnected:
                 ESP_LOGI(kTag, "WiFi disconnected");
@@ -345,9 +363,12 @@ void Application::EnterWifiConfigMode() {
     UpdateStatusBarForUi();
 }
 
-void Application::ArmSyncSleepTimer() {
-    Settings nvs(kSyncNamespace, false);
-    const int interval_minutes = nvs.GetInt(kSyncIntervalKey, 30);
+void Application::ArmSyncSleepTimer(int override_minutes) {
+    int interval_minutes = override_minutes;
+    if (interval_minutes <= 0) {
+        Settings nvs(kSyncNamespace, false);
+        interval_minutes = nvs.GetInt(kSyncIntervalKey, 30);
+    }
     if (interval_minutes <= 0) {
         ESP_LOGI(kTag, "Sync sleep interval: 关闭");
         return;
@@ -369,8 +390,50 @@ void Application::ArmSyncSleepTimer() {
     ESP_ERROR_CHECK(esp_timer_start_once(sleep_timer_, delay_us));
 }
 
+int64_t Application::MicrosUntilNextLocalMidnight() {
+    time_t now = time(nullptr);
+    struct tm tmv;
+    localtime_r(&now, &tmv);
+    if (tmv.tm_year <= 100) {
+        // SNTP not synced yet: retry in 24h so the next wake still lands
+        // near a midnight instead of spinning.
+        ESP_LOGW(kTag, "clock not synced; scheduling next refresh in 24h");
+        return 24LL * 60 * 60 * 1000 * 1000;
+    }
+    // Next local 00:00
+    struct tm next = tmv;
+    next.tm_hour = 0;
+    next.tm_min = 0;
+    next.tm_sec = 0;
+    next.tm_mday += 1;
+    time_t next_midnight = mktime(&next);  // normalizes overflow
+    int64_t delay_s = static_cast<int64_t>(next_midnight - now);
+    if (delay_s < 60) {
+        delay_s = 60;  // sanity floor: never sleep for less than a minute
+    }
+    ESP_LOGI(kTag, "next local midnight in %lld s (%.1f h)",
+             (long long)delay_s, delay_s / 3600.0);
+    return delay_s * 1000LL * 1000LL;
+}
+
 void Application::EnterScheduledSleep() {
-    ESP_LOGI(kTag, "Entering deep sleep after sync interval; BOOT wakes device");
+    const bool scheduled_refresh =
+        wake_cause_ == ESP_SLEEP_WAKEUP_TIMER;
+    // After a scheduled midnight refresh, do not honor the 30-min sync
+    // interval: arm a short "cooling" timer so the device goes back to
+    // sleep and the next wake lands on the following midnight.
+    const int override_minutes = scheduled_refresh ? kPostRefreshAwakeMinutes : -1;
+    ESP_LOGI(kTag, "Scheduling sleep: override_minutes=%d (scheduled_refresh=%d)",
+             override_minutes, scheduled_refresh ? 1 : 0);
+
+    // RTC alarm wakes the device at the next local midnight; on wake the
+    // normal boot path runs (WiFi -> fetch new photo -> EPD refresh).
+    const uint64_t midnight_us = static_cast<uint64_t>(MicrosUntilNextLocalMidnight());
+    esp_sleep_enable_timer_wakeup(midnight_us);
+    ESP_LOGI(kTag, "RTC wake-up armed for next local midnight (%llu min)",
+             (unsigned long long)(midnight_us / 60000000ULL));
+
+    ESP_LOGI(kTag, "Entering deep sleep; BOOT wakes device, timer wakes at midnight");
     wifi_connected_.store(false, std::memory_order_release);
     esp_wifi_disconnect();
     esp_wifi_stop();

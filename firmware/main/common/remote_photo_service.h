@@ -4,7 +4,10 @@
  *        BWRY 2bpp (400x300), store via photo_storage.
  *
  * Simple version of the "photo frame" feature:
- * - Button press or 24h timer triggers a fetch.
+ * - A fetch is triggered by a manual request (BOOT click on the gallery,
+ *   or waking the device with BOOT) or by the daily scheduled refresh:
+ *   the device deep-sleeps and the RTC wakes it at the next local
+ *   midnight (see Application::EnterScheduledSleep).
  * - Image source is a URL template, persisted in NVS
  *   ("remote_photo"/"remote_img_url"), swappable without reflashing
  *   (e.g. later switch from loremflickr to the FnOS NAS bridge).
@@ -41,7 +44,8 @@ public:
     static RemotePhotoService& GetInstance();
 
     // Called once from Application::Start after WiFi/UI init.
-    // Spawns the worker task and the 24h periodic timer.
+    // Spawns the worker task only; scheduling (daily midnight RTC
+    // wake-up) is owned by Application.
     void Start();
 
     // Queue a fetch cycle. Non-blocking, task-safe. Ignored when the

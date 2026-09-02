@@ -6,6 +6,8 @@
 #include <memory>
 #include <string_view>
 
+#include <esp_sleep.h>
+
 #include "audio_service.h"
 #include "device_state.h"
 
@@ -56,8 +58,19 @@ private:
     AudioService audio_service_;
     std::unique_ptr<ui::RawDrawUiManager> rawdraw_ui_manager_;
     esp_timer_handle_t sleep_timer_ = nullptr;
+    esp_sleep_wakeup_cause_t wake_cause_ = ESP_SLEEP_WAKEUP_UNDEFINED;
 
-    void ArmSyncSleepTimer();
+    // Minutes to stay awake after a scheduled (midnight) refresh before
+    // going back to deep sleep. Long enough for download + EPD refresh.
+    static constexpr int kPostRefreshAwakeMinutes = 3;
+
+    // Microseconds until the next local 00:00 (SNTP time). Falls back to
+    // 24h from now while the clock is not synced yet.
+    static int64_t MicrosUntilNextLocalMidnight();
+
+    // override_minutes > 0 replaces the NVS sync interval (used after a
+    // scheduled midnight refresh so the device sleeps again quickly).
+    void ArmSyncSleepTimer(int override_minutes = -1);
     void EnterScheduledSleep();
     void EnterManualSleep();
     void NoteButtonActivity();

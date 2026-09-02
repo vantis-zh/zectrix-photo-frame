@@ -23,7 +23,6 @@
 #include <freertos/task.h>
 #include <freertos/semphr.h>
 #include <esp_log.h>
-#include <esp_timer.h>
 #include <esp_http_client.h>
 #include <esp_crt_bundle.h>
 
@@ -116,9 +115,6 @@ constexpr const char* kRemotePhotoId = "remote00";
 constexpr size_t kWorkerStackSize = 12 * 1024;
 constexpr UBaseType_t kWorkerPriority = 5;
 
-// 24 hours auto refresh
-constexpr uint64_t kRefreshPeriodUs = 24ULL * 60 * 60 * 1000 * 1000;
-
 // BWRY palette and the wire-format index mapping (identical to the JS
 // converter in docs/inkscreen_image_converter.js):
 //   nearest-neighbor palette: 0=black 1=white 2=red 3=yellow
@@ -175,11 +171,6 @@ bool RemotePhotoService::RequestRefresh(const char* reason) {
     }
     xSemaphoreGive(static_cast<SemaphoreHandle_t>(worker_sem_));
     return true;
-}
-
-void RemotePhotoService::TimerCallback(void*) {
-    ESP_LOGI(kTag, "24h auto refresh");
-    GetInstance().RequestRefresh("24h-timer");
 }
 
 void RemotePhotoService::WorkerTaskEntry(void* arg) {
@@ -582,19 +573,6 @@ void RemotePhotoService::Start() {
         return;
     }
 
-    esp_timer_handle_t timer = nullptr;
-    const esp_timer_create_args_t timer_args = {
-        .callback = &RemotePhotoService::TimerCallback,
-        .arg = nullptr,
-        .dispatch_method = ESP_TIMER_TASK,
-        .name = "remote_photo_t",
-        .skip_unhandled_events = false,
-    };
-    if (esp_timer_create(&timer_args, &timer) == ESP_OK) {
-        esp_timer_start_periodic(timer, kRefreshPeriodUs);
-    } else {
-        ESP_LOGE(kTag, "failed to create refresh timer");
-    }
-
-    ESP_LOGI(kTag, "started, url=%s", GetImageUrl().c_str());
+    ESP_LOGI(kTag, "started, url=%s (auto refresh: daily local midnight via deep-sleep RTC wake-up)",
+             GetImageUrl().c_str());
 }
