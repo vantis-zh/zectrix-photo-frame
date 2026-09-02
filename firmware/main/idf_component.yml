@@ -24,10 +24,9 @@ dependencies:
   espressif/esp-sr: ~2.2.0
   espressif/button: ~4.1.3
   espressif/knob: ^1.0.0
-  espressif/esp_video:
-    version: ==1.3.1   # for compatibility. update version may need to modify this project code.
-    rules:
-    - if: target not in [esp32]
+  # esp_video(及随之拉入的 esp_cam_sensor/usb_host_uvc)已移除：本板无摄像头，
+  # 且 esp_cam_sensor 与 IDF 6.1-rc1 的 SPI slave API 不兼容无法编译。
+  # main 源码零引用。恢复方法：加回 espressif/esp_video: ==1.3.1 并还原 components/espressif__esp_video。
   espressif/esp_image_effects:
     version: ^1.0.1
     rules:

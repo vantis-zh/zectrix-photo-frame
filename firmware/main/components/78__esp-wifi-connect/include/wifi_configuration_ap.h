@@ -68,6 +68,11 @@ private:
     esp_timer_handle_t scan_timer_ = nullptr;
     bool is_connecting_ = false;
     esp_netif_t* ap_netif_ = nullptr;
+    // STA netif needed so the credential-test connection (ConnectToWifi) can run
+    // DHCP. Without it, association succeeds but no IP ever arrives and every
+    // submit fails with "Failed to connect to the Access Point".
+    esp_netif_t* sta_netif_ = nullptr;
+    bool sta_netif_owned_ = false;
     std::vector<wifi_ap_record_t> ap_records_;
 
     // 高级配置项

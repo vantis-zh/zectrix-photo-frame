@@ -1,14 +1,13 @@
 /**
  * @file photo_gallery.h
- * @brief Photo gallery page renderer for rawdraw mode
+ * @brief Photo gallery page renderer for rawdraw mode (photo frame only)
  *
- * Two display modes:
- * - Memory card mode: left narrative + right image
- * - Full-screen mode: Single photo at full resolution
+ * Full-screen mode: Single photo at full resolution.
+ * When no photo is available (or loading fails), a simple placeholder is
+ * rendered instead. The former "memory card" demo layout has been removed.
  *
- * Navigation:
- * - UP/DOWN: Previous/next memory
- * - BOOT: Enter full-screen / return to memory card
+ * Buttons:
+ * - BOOT single click: request a new remote (random) photo
  */
 
 #ifndef RAWDRAW_PHOTO_GALLERY_H
@@ -35,10 +34,9 @@ public:
     void Render(uint8_t* fb, int width, int height) override;
     bool HandleInput(const ButtonEvent& event) override;
 
-    // Display modes
+    // Display modes (photo frame mode is always full-screen)
     enum DisplayMode {
-        kMemoryCardMode,  // Left text + right image
-        kFullscreenMode,  // Single photo
+        kFullscreenMode,  // Single photo (or placeholder when empty)
     };
 
     // Data interface
@@ -50,12 +48,15 @@ public:
     void EnterFullscreenMode();
     bool SelectNext(bool wrap);
     bool IsFullscreenMode() const { return mode_ == kFullscreenMode; }
-    bool IsDeleteDialogOpen() const { return showing_delete_dialog_; }
     bool IsCurrentPhotoBwry2bpp() const;
     const uint8_t* GetCurrentPhotoData() const { return current_photo_data_; }
     uint32_t GetCurrentPhotoSize() const { return current_photo_size_; }
     int GetCurrentPhotoWidth() const { return current_photo_width_; }
     int GetCurrentPhotoHeight() const { return current_photo_height_; }
+
+    // Remote photo frame: show the latest remotely fetched photo
+    // (id "remote00") fullscreen. Returns false when it is not in storage.
+    bool ShowRemotePhoto();
 
 private:
     struct PhotoEntry {
@@ -69,26 +70,18 @@ private:
         uint32_t file_size;
     };
 
-    void RenderMemoryCardMode(uint8_t* fb, int width, int height);
-    void RenderPhotoInRect(uint8_t* fb, int fb_width, const PhotoEntry& entry,
-                           int x, int y, int w, int h, bool invert = false);
-    void RenderDeleteDialog(uint8_t* fb, int width, int height);
-
     // Full-screen mode rendering
     void RenderFullscreenMode(uint8_t* fb, int width, int height);
 
     // Photo data loading
     void LoadPhotoData(int index);
-    void DeleteSelectedPhoto();
 
     // Helpers
     void ClampSelection();
 
     // State
-    DisplayMode mode_ = kMemoryCardMode;
+    DisplayMode mode_ = kFullscreenMode;
     int selected_index_ = 0;
-    bool showing_delete_dialog_ = false;
-    int delete_dialog_selected_ = 1;  // 0=delete, 1=cancel
 
     std::vector<PhotoEntry> photo_ids_;
 

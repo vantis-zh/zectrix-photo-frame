@@ -17,6 +17,7 @@ set(SOURCES
     "display/lvgl_display/lvgl_theme.cc"
     "display/lvgl_display/lvgl_font.cc"
     "common/sleep_manager.cc"
+    "common/remote_photo_service.cc"
     "boards/common/board.cc"
     "boards/common/button.cc"
     "boards/common/i2c_bus_lock.cc"
@@ -62,29 +63,12 @@ set(SOURCES
     "common/ble_image_receiver.cc"
     "common/holiday_fetcher.cc"
     "ui/widgets/status_bar.cc"
-    "ui/renderers/rawdraw/ebook_renderer.cc"
-    "ui/renderers/rawdraw/chat_renderer.cc"
     "ui/renderers/rawdraw/settings_renderer.cc"
-    "ui/renderers/rawdraw/wifi_renderer.cc"
-    "ui/renderers/rawdraw/weather_renderer.cc"
-    "ui/renderers/rawdraw/weather_detail_renderer.cc"
-    "ui/renderers/rawdraw/lifebar_renderer.cc"
-    "ui/renderers/rawdraw/almanac_renderer.cc"
-    "ui/renderers/rawdraw/log_renderer.cc"
-    "ui/renderers/rawdraw/yearprogress_renderer.cc"
-    "ui/renderers/rawdraw/calendar_renderer.cc"
     "ui/renderers/rawdraw/photo_gallery.cc"
-    "ui/renderers/rawdraw/photo_detail_renderer.cc"
-    "ui/renderers/rawdraw/news_renderer.cc"
-    "ui/renderers/rawdraw/font_debug_renderer.cc"
-    "ui/renderers/rawdraw/font_metrics_renderer.cc"
     "ui/renderers/rawdraw/ap_transfer_renderer.cc"
     "ui/renderers/rawdraw/ap_transfer_server.cc"
     "ui/rawdraw_ui_manager.cc"
     "ui/epd_refresh.cc"
-    "streaming/text_chunker.cc"
-    "streaming/tts_streamer.cc"
-    "streaming/stream_pipeline.cc"
 )
 
 set(INCLUDE_DIRS
@@ -99,7 +83,6 @@ set(INCLUDE_DIRS
     "ui/renderers"
     "ui/renderers/common"
     "ui/renderers/rawdraw"
-    "streaming"
     "protocols"
     "components/78__esp-ml307/include"
     "boards/common"
@@ -140,6 +123,13 @@ idf_component_register(
         esp_event
         log
 )
+
+# release.py 静态扫描用：提供 `if(CONFIG_BOARD_TYPE_xxx) set(BOARD_TYPE "xxx")` 文本模式，
+# 使其能映射 CONFIG_BOARD_TYPE_xxx -> board_type，并向 sdkconfig 注入 CONFIG_BOARD_TYPE_xxx=y。
+# 此块不参与实际编译（BOARD_TYPE 在下方 target_compile_definitions 中硬编码），仅供打包脚本解析。
+if(CONFIG_BOARD_TYPE_ZECTRIX_S3_EPAPER_4_2)
+    set(BOARD_TYPE "zectrix-s3-epaper-4.2")
+endif()
 
 target_compile_definitions(
     ${COMPONENT_LIB}

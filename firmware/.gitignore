@@ -12,3 +12,5 @@ sdkconfig
 *.bin
 *.elf
 *.map
+components_disabled/
+managed_components.bak/

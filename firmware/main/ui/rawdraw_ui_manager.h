@@ -13,22 +13,8 @@
 #include "boards/zectrix-s3-epaper-4.2/custom_lcd_display.h"
 
 #include "ui/renderers/rawdraw/page_renderer.h"
-#include "ui/renderers/rawdraw/chat_renderer.h"
 #include "ui/renderers/rawdraw/settings_renderer.h"
-#include "ui/renderers/rawdraw/ebook_renderer.h"
-#include "ui/renderers/rawdraw/wifi_renderer.h"
 #include "ui/renderers/rawdraw/photo_gallery.h"
-#include "ui/renderers/rawdraw/photo_detail_renderer.h"
-#include "ui/renderers/rawdraw/weather_renderer.h"
-#include "ui/renderers/rawdraw/weather_detail_renderer.h"
-#include "ui/renderers/rawdraw/news_renderer.h"
-#include "ui/renderers/rawdraw/lifebar_renderer.h"
-#include "ui/renderers/rawdraw/almanac_renderer.h"
-#include "ui/renderers/rawdraw/log_renderer.h"
-#include "ui/renderers/rawdraw/yearprogress_renderer.h"
-#include "ui/renderers/rawdraw/font_debug_renderer.h"
-#include "ui/renderers/rawdraw/font_metrics_renderer.h"
-#include "ui/renderers/rawdraw/calendar_renderer.h"
 #include "ui/renderers/rawdraw/ap_transfer_renderer.h"
 #include "ui/renderers/rawdraw/ap_transfer_server.h"
 #include "rawdraw/rawdraw.h"
@@ -59,23 +45,9 @@ namespace ui {
  * Separate from ui::PageId to avoid conflict with LVGL UiManager.
  */
 enum class RawDrawPageId {
-    Chat = 0,
-    Ebook = 2,
-    Wifi = 3,
-    Settings = 4,
-    Gallery = 5,
-    Weather = 6,
-    News = 7,
-    WeatherDetail = 8,
-    PhotoDetail = 9,
-    LifeBar = 10,
-    Almanac = 11,
-    Log = 12,
-    YearProgress = 13,
-    Calendar = 14,
-    FontDebug = 15,
-    FontMetrics = 16,
-    APTransfer = 17,
+    Gallery = 0,
+    Settings = 1,
+    APTransfer = 2,
     Count,
 };
 
@@ -186,17 +158,12 @@ public:
     bool IsApTransferRunning() const {
         return ap_transfer_server_ && ap_transfer_server_->IsRunning();
     }
-    bool IsApTransferModeRunning() const {
-        return ap_transfer_server_ && ap_transfer_server_->IsRunning() && ap_transfer_server_->IsApMode();
-    }
     bool IsLanHttpServerRunning() const {
         return ap_transfer_server_ && ap_transfer_server_->IsRunning() && ap_transfer_server_->IsLanMode();
     }
     bool IsHttpServerRunning() const {
         return ap_transfer_server_ && ap_transfer_server_->IsRunning();
     }
-    void StartApTransferMode();
-    void StopApTransferMode();
     void ShowWifiConfigPage(const std::string& ssid,
                             const std::string& password,
                             const std::string& url);
@@ -236,47 +203,6 @@ public:
     // ============================================================
 
     /**
-     * @brief Add a chat message to the chat page
-     */
-    void AddChatMessage(const std::string& text, rawdraw::ChatRole role);
-
-    /**
-     * @brief Clear all chat messages
-     */
-    void ClearChat();
-
-    /**
-     * @brief Begin streaming text to chat page
-     */
-    void BeginChatStream();
-
-    /**
-     * @brief Append streaming text chunk to chat page
-     */
-    bool AppendChatText(const char* chunk);
-
-    /**
-     * @brief End streaming text on chat page
-     */
-    void EndChatStream();
-
-    /**
-     * @brief Show/hide status bubble on chat page
-     */
-    void ShowChatStatus(const std::string& status, rawdraw::ChatRole role);
-    void HideChatStatus();
-
-    /**
-     * @brief Set listening state on chat page
-     */
-    void SetChatListening(bool listening);
-
-    /**
-     * @brief Set bottom status text on chat page
-     */
-    void SetChatBottomStatus(const std::string& status);
-
-    /**
      * @brief Set settings page items
      */
     void SetSettingsItems(const std::vector<rawdraw::SettingsItemDef>& items);
@@ -297,47 +223,12 @@ public:
     void SetRawDrawTheme(rawdraw::ThemeId theme_id);
     rawdraw::ThemeId GetRawDrawTheme() const;
 
-    /**
-     * @brief Update WiFi status page data
-     */
-    void UpdateWifiStatus(const rawdraw::WifiStatus& status);
-
-    /**
-     * @brief Get WiFi status
-     */
-    rawdraw::WifiStatus GetWifiStatus() const;
-
-    /**
-     * @brief Set WiFi blinking animation state
-     */
-    void SetWifiBlinking(bool blinking);
-
-    /**
-     * @brief Toggle lifebar page visibility (controlled via settings)
-     */
-    void SetLifeBarVisible(bool visible);
-    bool IsLifeBarVisible() const;
-
     // ============================================================
     // Page renderer access (for advanced usage)
     // ============================================================
 
-    rawdraw::ChatRenderer* GetChatRenderer() { return chat_renderer_.get(); }
-    rawdraw::EbookRenderer* GetEbookRenderer() { return ebook_renderer_.get(); }
-    rawdraw::WifiRenderer* GetWifiRenderer() { return wifi_renderer_.get(); }
     rawdraw::SettingsRenderer* GetSettingsRenderer() { return settings_renderer_.get(); }
     rawdraw::PhotoGalleryRenderer* GetPhotoGalleryRenderer() { return photo_gallery_renderer_.get(); }
-    rawdraw::PhotoDetailRenderer* GetPhotoDetailRenderer() { return photo_detail_renderer_.get(); }
-    rawdraw::WeatherRenderer* GetWeatherRenderer() { return weather_renderer_.get(); }
-    rawdraw::WeatherDetailRenderer* GetWeatherDetailRenderer() { return weather_detail_renderer_.get(); }
-    rawdraw::NewsRenderer* GetNewsRenderer() { return news_renderer_.get(); }
-    rawdraw::LifeBarRenderer* GetLifeBarRenderer() { return lifebar_renderer_.get(); }
-    rawdraw::AlmanacRenderer* GetAlmanacRenderer() { return almanac_renderer_.get(); }
-    rawdraw::LogRenderer* GetLogRenderer() { return log_renderer_.get(); }
-    rawdraw::YearProgressRenderer* GetYearProgressRenderer() { return yearprogress_renderer_.get(); }
-    rawdraw::CalendarRenderer* GetCalendarRenderer() { return calendar_renderer_.get(); }
-    rawdraw::FontDebugRenderer* GetFontDebugRenderer() { return font_debug_renderer_.get(); }
-    rawdraw::FontMetricsRenderer* GetFontMetricsRenderer() { return font_metrics_renderer_.get(); }
     rawdraw::ApTransferRenderer* GetApTransferRenderer() { return ap_transfer_renderer_.get(); }
 
     // ============================================================
@@ -360,9 +251,24 @@ public:
      * Use this from callbacks that may run outside LanMicApp::Run().
      */
     void RequestActivePageRefresh();
-    void SetGallerySlideshowIntervalMinutes(int minutes);
-    int GetGallerySlideshowIntervalMinutes() const { return gallery_slideshow_interval_minutes_; }
     bool ShowPhotoById(const std::string& photo_id);
+
+    /**
+     * @brief Called after RemotePhotoService stored a new "remote00" photo.
+     *
+     * Switches the gallery to fullscreen mode showing the fresh photo and
+     * queues a page refresh. Task-safe: the refresh itself is marshalled to
+     * the main loop via RequestActivePageRefresh().
+     */
+    void OnRemotePhotoStored();
+
+    /**
+     * @brief Queue a remote photo fetch (button entry point).
+     *
+     * Thin wrapper around RemotePhotoService::RequestRefresh so renderers
+     * do not need the service header.
+     */
+    static bool RequestRemotePhotoRefresh();
 
     /**
      * @brief Trigger EPD refresh immediately
@@ -433,22 +339,8 @@ private:
     mutable std::mutex ui_state_mutex_;
 
     // Page renderers (owned)
-    std::unique_ptr<rawdraw::ChatRenderer> chat_renderer_;
-    std::unique_ptr<rawdraw::EbookRenderer> ebook_renderer_;
-    std::unique_ptr<rawdraw::WifiRenderer> wifi_renderer_;
     std::unique_ptr<rawdraw::SettingsRenderer> settings_renderer_;
     std::unique_ptr<rawdraw::PhotoGalleryRenderer> photo_gallery_renderer_;
-    std::unique_ptr<rawdraw::PhotoDetailRenderer> photo_detail_renderer_;
-    std::unique_ptr<rawdraw::WeatherRenderer> weather_renderer_;
-    std::unique_ptr<rawdraw::WeatherDetailRenderer> weather_detail_renderer_;
-    std::unique_ptr<rawdraw::NewsRenderer> news_renderer_;
-    std::unique_ptr<rawdraw::LifeBarRenderer> lifebar_renderer_;
-    std::unique_ptr<rawdraw::AlmanacRenderer> almanac_renderer_;
-    std::unique_ptr<rawdraw::LogRenderer> log_renderer_;
-    std::unique_ptr<rawdraw::YearProgressRenderer> yearprogress_renderer_;
-    std::unique_ptr<rawdraw::CalendarRenderer> calendar_renderer_;
-    std::unique_ptr<rawdraw::FontDebugRenderer> font_debug_renderer_;
-    std::unique_ptr<rawdraw::FontMetricsRenderer> font_metrics_renderer_;
     std::unique_ptr<rawdraw::ApTransferRenderer> ap_transfer_renderer_;
     std::unique_ptr<rawdraw::ApTransferServer> ap_transfer_server_;
 
@@ -463,14 +355,11 @@ private:
     rawdraw::Clock clock_;
     esp_timer_handle_t clock_refresh_timer_ = nullptr;
     esp_timer_handle_t transient_refresh_timer_ = nullptr;
-    esp_timer_handle_t gallery_slideshow_timer_ = nullptr;
     std::atomic<bool> clock_refresh_pending_{false};
     std::atomic<bool> transient_refresh_pending_{false};
     std::atomic<bool> active_page_refresh_pending_{false};
-    std::atomic<bool> gallery_slideshow_pending_{false};
     std::atomic<bool> input_refresh_locked_{false};
     int last_clock_minute_key_ = -1;
-    int gallery_slideshow_interval_minutes_ = 0;
 
     // Voice wakeup overlay state
     rawdraw::VoiceWakeupState voice_wakeup_state_;
@@ -491,9 +380,6 @@ private:
     void ArmTransientRefreshTimer(int delay_ms = 2000);
     static void OnClockRefreshTimer(void* arg);
     static void OnTransientRefreshTimer(void* arg);
-    static void OnGallerySlideshowTimer(void* arg);
-    void ArmGallerySlideshowTimer();
-    bool AdvanceGallerySlideshow();
     void DrawGlobalPageFrame(uint8_t* fb, int width, int height);
     void DrawQuickSwitchOverlay(uint8_t* fb, int width, int height);
     bool HandleQuickSwitchInput(const rawdraw::ButtonEvent& event);

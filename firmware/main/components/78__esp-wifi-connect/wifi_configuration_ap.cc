@@ -151,6 +151,21 @@ void WifiConfigurationAp::StartAccessPoint()
     // Create the default WiFi AP interface
     ap_netif_ = esp_netif_create_default_wifi_ap();
 
+    // The credential test in ConnectToWifi() needs a STA netif, otherwise
+    // association succeeds (state: init->auth->assoc->run) but no DHCP client
+    // is ever attached, so IP_EVENT_STA_GOT_IP never fires and every submit
+    // fails after the 10s timeout with a bogus "Failed to connect".
+    // WifiStation::Start() normally owns this netif, but when the device has no
+    // saved credentials it boots straight into config AP and Start() never runs.
+    sta_netif_ = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    if (sta_netif_ == nullptr) {
+        sta_netif_ = esp_netif_create_default_wifi_sta();
+        sta_netif_owned_ = true;
+        ESP_LOGI(TAG, "STA netif created for credential test");
+    } else {
+        ESP_LOGI(TAG, "STA netif reused from station");
+    }
+
     // Set the router IP address to 192.168.4.1
     esp_netif_ip_info_t ip_info;
     IP4_ADDR(&ip_info.ip, 192, 168, 4, 1);
@@ -714,7 +729,9 @@ bool WifiConfigurationAp::ConnectToWifi(const std::string &ssid, const std::stri
     strlcpy((char *)wifi_config.sta.ssid, ssid.c_str(), 32);
     strlcpy((char *)wifi_config.sta.password, password.c_str(), 64);
     wifi_config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
-    wifi_config.sta.failure_retry_cnt = 1;
+    // 1 retry is too aggressive: a single transient miss aborts the whole
+    // credential test and reports a bogus failure to the user.
+    wifi_config.sta.failure_retry_cnt = 5;
     
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     auto ret = esp_wifi_connect();
@@ -725,7 +742,7 @@ bool WifiConfigurationAp::ConnectToWifi(const std::string &ssid, const std::stri
     }
     ESP_LOGI(TAG, "Connecting to WiFi %s", ssid.c_str());
 
-    // Wait for the connection to complete for 10 or 25 seconds
+    // Wait for the connection to complete for 20 or 25 seconds
     EventBits_t bits = xEventGroupWaitBits(
         event_group_,
         WIFI_GOT_IP_BIT | WIFI_FAIL_BIT,
@@ -734,7 +751,7 @@ bool WifiConfigurationAp::ConnectToWifi(const std::string &ssid, const std::stri
 #ifdef CONFIG_SOC_WIFI_SUPPORT_5G
         pdMS_TO_TICKS(25000)
 #else
-        pdMS_TO_TICKS(10000)
+        pdMS_TO_TICKS(20000)
 #endif
     );
     is_connecting_ = false;
@@ -772,6 +789,9 @@ void WifiConfigurationAp::WifiEventHandler(void* arg, esp_event_base_t event_bas
     } else if (event_id == WIFI_EVENT_STA_CONNECTED) {
         ESP_LOGI(TAG, "Associated with WiFi, waiting for IP address");
     } else if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        wifi_event_sta_disconnected_t* event = (wifi_event_sta_disconnected_t*) event_data;
+        ESP_LOGW(TAG, "STA disconnected: reason=%d ssid=%.*s",
+                 event->reason, event->ssid_len, (const char*)event->ssid);
         xEventGroupSetBits(self->event_group_, WIFI_FAIL_BIT);
     } else if (event_id == WIFI_EVENT_SCAN_DONE) {
         std::lock_guard<std::mutex> lock(self->mutex_);
@@ -903,6 +923,18 @@ void WifiConfigurationAp::Stop() {
     if (ap_netif_) {
         esp_netif_destroy_default_wifi(ap_netif_);
         ap_netif_ = nullptr;
+    }
+
+    // Release the STA netif used for the credential test. Only destroy it when
+    // this class created it — otherwise it belongs to WifiStation and will be
+    // destroyed there.
+    if (sta_netif_) {
+        esp_netif_dhcpc_stop(sta_netif_);
+        if (sta_netif_owned_) {
+            esp_netif_destroy_default_wifi(sta_netif_);
+            sta_netif_owned_ = false;
+        }
+        sta_netif_ = nullptr;
     }
 
     ESP_LOGI(TAG, "Wifi configuration AP stopped");

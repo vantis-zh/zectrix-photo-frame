@@ -41,4 +41,22 @@ config ZECTRIX_EPD_4COLOR_BOOT_TEST_PATTERN
         Show black/white/red/yellow vertical bars once during display
         initialization so a newly connected 4-color panel can be verified.
 
+# 由 build.sh 通过 config.json 的 sdkconfig_append 注入（--ota-url / --wifi-ssid /
+# --wifi-password）。必须在 Kconfig 中声明，否则 kconfiglib 会丢弃这些未知符号，
+# 注入的值进不了 sdkconfig.h，代码侧回退为空串/跳过。
+config OTA_URL
+    string "OTA firmware URL (baked in by build.sh --ota-url)"
+    default ""
+    depends on BOARD_TYPE_ZECTRIX_S3_EPAPER_4_2
+
+config DEFAULT_WIFI_SSID
+    string "Preset WiFi SSID (baked in by build.sh --wifi-ssid)"
+    default ""
+    depends on BOARD_TYPE_ZECTRIX_S3_EPAPER_4_2
+
+config DEFAULT_WIFI_PASSWORD
+    string "Preset WiFi password (baked in by build.sh --wifi-password)"
+    default ""
+    depends on BOARD_TYPE_ZECTRIX_S3_EPAPER_4_2
+
 endmenu

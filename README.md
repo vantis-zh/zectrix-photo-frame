@@ -123,9 +123,40 @@ http://192.168.4.1
 
 ### 编译
 
+`build.sh` 会自动探测 ESP-IDF 环境，无需手动 source。命中即停：
+
+1. 当前 shell 已有的 `idf.py`
+2. 显式指定的 `export.sh`：`IDF_EXPORT_PATH` → `IDF_PATH`
+3. EIM 安装自动探测：`~/.espressif/tools/activate_idf_*.sh`（取版本号最高的一个）
+4. 常见安装路径下的 `export.sh`：`~/.espressif/v*/esp-idf`、`~/esp/esp-idf`
+
+多版本 IDF 时建议在 `firmware/.env` 里显式指定，避免选错（`.env` 已在 `.gitignore` 中）：
+
+```bash
+IDF_EXPORT_PATH=/Users/you/.espressif/v6.1-rc1/esp-idf
+# 或 EIM 方式
+IDF_ACTIVATE_SCRIPT=/Users/you/.espressif/tools/activate_idf_v6.1-rc1.sh
+```
+
+> 注意：EIM 的 activate 脚本只把 `idf.py` 定义成 shell 函数，子进程（如 `release.py`
+> 里的 `os.system("idf.py ...")`）解析不到。`build.sh` 会自动补上
+> `PATH=$IDF_PATH/tools:$PATH`；如果你自己在脚本里激活，记得手动补这一句。
+
+直接打包（含 fullclean、注入 OTA 地址、生成 releases zip）：
+
 ```bash
 cd firmware
-source ~/Documents/esp/v6.0/esp-idf/export.sh
+./build.sh
+./build.sh --no-rebuild            # 增量编译
+./build.sh --ota-url https://...   # 覆盖 OTA 地址
+```
+
+只编译、不走打包流程时，手动初始化环境：
+
+```bash
+cd firmware
+source ~/.espressif/tools/activate_idf_v6.1-rc1.sh   # EIM 安装
+# 或传统方式：source <你的 esp-idf 目录>/export.sh
 idf.py build
 ```
 
