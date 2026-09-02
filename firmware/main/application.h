@@ -60,16 +60,12 @@ private:
     esp_timer_handle_t sleep_timer_ = nullptr;
     esp_sleep_wakeup_cause_t wake_cause_ = ESP_SLEEP_WAKEUP_UNDEFINED;
 
-    // Minutes to stay awake after a scheduled (midnight) refresh before
+    // Minutes to stay awake after a scheduled (auto-refresh) wake before
     // going back to deep sleep. Long enough for download + EPD refresh.
     static constexpr int kPostRefreshAwakeMinutes = 3;
 
-    // Microseconds until the next local 00:00 (SNTP time). Falls back to
-    // 24h from now while the clock is not synced yet.
-    static int64_t MicrosUntilNextLocalMidnight();
-
     // override_minutes > 0 replaces the NVS sync interval (used after a
-    // scheduled midnight refresh so the device sleeps again quickly).
+    // scheduled auto refresh so the device sleeps again quickly).
     void ArmSyncSleepTimer(int override_minutes = -1);
     void EnterScheduledSleep();
     void EnterManualSleep();

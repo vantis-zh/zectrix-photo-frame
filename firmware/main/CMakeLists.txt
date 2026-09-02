@@ -18,6 +18,7 @@ set(SOURCES
     "display/lvgl_display/lvgl_font.cc"
     "common/sleep_manager.cc"
     "common/remote_photo_service.cc"
+    "common/frame_settings.cc"
     "boards/common/board.cc"
     "boards/common/button.cc"
     "boards/common/i2c_bus_lock.cc"

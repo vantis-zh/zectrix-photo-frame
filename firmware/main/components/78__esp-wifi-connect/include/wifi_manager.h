@@ -41,6 +41,7 @@ enum class WifiEvent {
     Disconnected,      // Disconnected from network
     ConfigModeEnter,   // Entered config AP mode
     ConfigModeExit,    // Exited config AP mode
+    OpenDeviceSettings, // Web portal asked to open settings on device screen
 };
 
 // Configuration

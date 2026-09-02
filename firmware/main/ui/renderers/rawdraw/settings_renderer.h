@@ -163,6 +163,50 @@ public:
         theme_dialog_handler_ = std::move(handler);
     }
 
+    // Generic selection list dialog (scrollable, like server list dialog).
+    // The handler receives the chosen index, or -1 when cancelled.
+    void ShowListDialog(const std::string& title,
+                        const std::vector<std::string>& options,
+                        const std::string& current) {
+        list_dialog_title_ = title;
+        list_dialog_options_ = options;
+        list_dialog_selected_ = 0;
+        list_dialog_scroll_offset_ = 0;
+        for (size_t i = 0; i < options.size(); ++i) {
+            if (options[i] == current) {
+                list_dialog_selected_ = static_cast<int>(i);
+                break;
+            }
+        }
+        showing_list_dialog_ = true;
+        needs_full_refresh_ = true;
+    }
+    void HideListDialog() { showing_list_dialog_ = false; needs_full_refresh_ = true; }
+    bool IsListDialogShowing() const { return showing_list_dialog_; }
+    int GetListDialogSelection() const { return list_dialog_selected_; }
+    void SetListDialogHandler(std::function<void(int)> handler) {
+        list_dialog_handler_ = std::move(handler);
+    }
+
+    // Time-set dialog: UP/DN adjust the active field, BOOT short press
+    // cycles field (hour -> minute -> confirm), BOOT long press saves.
+    // UP long press / DOWN long press cancel.
+    void ShowTimeSetDialog(int minutes_of_day) {
+        timeset_hour_ = (minutes_of_day / 60) % 24;
+        timeset_minute_ = (minutes_of_day % 60) / kTimeSetMinuteStep * kTimeSetMinuteStep;
+        timeset_field_ = 0;
+        showing_timeset_dialog_ = true;
+        needs_full_refresh_ = true;
+    }
+    void HideTimeSetDialog() { showing_timeset_dialog_ = false; needs_full_refresh_ = true; }
+    bool IsTimeSetDialogShowing() const { return showing_timeset_dialog_; }
+    int GetTimeSetResult() const {
+        return timeset_hour_ * 60 + timeset_minute_;
+    }
+    void SetTimeSetDialogHandler(std::function<void(int)> handler) {
+        timeset_dialog_handler_ = std::move(handler);
+    }
+
     // OTA firmware update dialog
     void ShowOtaDialog(const std::vector<std::string>& versions,
                        const std::string& current_version,
@@ -210,6 +254,8 @@ private:
     void RenderServerDialog(uint8_t* fb, int width, int height);
     void RenderServerListDialog(uint8_t* fb, int width, int height);
     void RenderThemeDialog(uint8_t* fb, int width, int height);
+    void RenderListDialog(uint8_t* fb, int width, int height);
+    void RenderTimeSetDialog(uint8_t* fb, int width, int height);
     void RenderOtaDialog(uint8_t* fb, int width, int height);
     void RenderOtaConfirmDialog(uint8_t* fb, int width, int height);  // OTA 确认弹窗
     void UpdateVolumeValue(int delta, bool commit);
@@ -260,6 +306,23 @@ private:
     int theme_selected_ = 0;
     std::function<void(rawdraw::ThemeId)> theme_dialog_handler_;
     static constexpr int kServerListVisibleRows = 5;  // Max visible rows in list
+
+    // Generic list dialog state
+    bool showing_list_dialog_ = false;
+    std::string list_dialog_title_;
+    std::vector<std::string> list_dialog_options_;
+    int list_dialog_selected_ = 0;
+    int list_dialog_scroll_offset_ = 0;
+    std::function<void(int)> list_dialog_handler_;
+    static constexpr int kListDialogVisibleRows = 7;
+
+    // Time-set dialog state
+    bool showing_timeset_dialog_ = false;
+    int timeset_hour_ = 0;
+    int timeset_minute_ = 0;
+    int timeset_field_ = 0;  // 0=hour 1=minute 2=confirm
+    std::function<void(int)> timeset_dialog_handler_;
+    static constexpr int kTimeSetMinuteStep = 15;
 
     // OTA dialog state
     bool showing_ota_dialog_ = false;

@@ -595,6 +595,12 @@ void SettingsRenderer::Render(uint8_t* fb, int width, int height) {
     if (showing_theme_dialog_) {
         RenderThemeDialog(fb, width, height);
     }
+    if (showing_list_dialog_) {
+        RenderListDialog(fb, width, height);
+    }
+    if (showing_timeset_dialog_) {
+        RenderTimeSetDialog(fb, width, height);
+    }
     if (showing_ota_dialog_) {
         RenderOtaDialog(fb, width, height);
         if (showing_ota_confirm_dialog_) {
@@ -837,6 +843,107 @@ bool SettingsRenderer::HandleInput(const ButtonEvent& event) {
                 return true;
             case ButtonEvent::kBootLongPress:
                 showing_theme_dialog_ = false;
+                needs_full_refresh_ = true;
+                return true;
+            default:
+                return true;
+        }
+    }
+
+    // Generic list dialog: UP/DN scroll, BOOT select, BOOT long press cancel
+    if (showing_list_dialog_) {
+        const int total = static_cast<int>(list_dialog_options_.size());
+        if (total == 0) {
+            showing_list_dialog_ = false;
+            needs_full_refresh_ = true;
+            return true;
+        }
+        switch (event.type) {
+            case ButtonEvent::kUpClick:
+                if (list_dialog_selected_ > 0) {
+                    list_dialog_selected_--;
+                    if (list_dialog_selected_ < list_dialog_scroll_offset_) {
+                        list_dialog_scroll_offset_ = list_dialog_selected_;
+                    }
+                    needs_full_refresh_ = true;
+                }
+                return true;
+            case ButtonEvent::kDownClick:
+                if (list_dialog_selected_ < total - 1) {
+                    list_dialog_selected_++;
+                    if (list_dialog_selected_ >= list_dialog_scroll_offset_ + kListDialogVisibleRows) {
+                        list_dialog_scroll_offset_ =
+                            list_dialog_selected_ - kListDialogVisibleRows + 1;
+                    }
+                    needs_full_refresh_ = true;
+                }
+                return true;
+            case ButtonEvent::kBootClick:
+                if (list_dialog_handler_) {
+                    list_dialog_handler_(list_dialog_selected_);
+                }
+                showing_list_dialog_ = false;
+                needs_full_refresh_ = true;
+                return true;
+            case ButtonEvent::kBootLongPress:
+                // Cancel
+                if (list_dialog_handler_) {
+                    list_dialog_handler_(-1);
+                }
+                showing_list_dialog_ = false;
+                needs_full_refresh_ = true;
+                return true;
+            default:
+                return true;
+        }
+    }
+
+    // Time-set dialog: BOOT short press cycles field (hour -> minute ->
+    // confirm and save), BOOT long press saves from anywhere, UP/DN long
+    // press cancel.
+    if (showing_timeset_dialog_) {
+        switch (event.type) {
+            case ButtonEvent::kUpClick:
+                if (timeset_field_ == 0) {
+                    timeset_hour_ = (timeset_hour_ + 23) % 24;
+                } else if (timeset_field_ == 1) {
+                    timeset_minute_ =
+                        (timeset_minute_ + 60 - kTimeSetMinuteStep) % 60;
+                }
+                needs_full_refresh_ = true;
+                return true;
+            case ButtonEvent::kDownClick:
+                if (timeset_field_ == 0) {
+                    timeset_hour_ = (timeset_hour_ + 1) % 24;
+                } else if (timeset_field_ == 1) {
+                    timeset_minute_ = (timeset_minute_ + kTimeSetMinuteStep) % 60;
+                }
+                needs_full_refresh_ = true;
+                return true;
+            case ButtonEvent::kBootClick:
+                // Cycle: hour -> minute -> confirm (save and close)
+                if (timeset_field_ < 2) {
+                    timeset_field_++;
+                } else {
+                    if (timeset_dialog_handler_) {
+                        timeset_dialog_handler_(timeset_hour_ * 60 + timeset_minute_);
+                    }
+                    showing_timeset_dialog_ = false;
+                }
+                needs_full_refresh_ = true;
+                return true;
+            case ButtonEvent::kBootLongPress:
+                // Save from any field
+                if (timeset_dialog_handler_) {
+                    timeset_dialog_handler_(timeset_hour_ * 60 + timeset_minute_);
+                }
+                showing_timeset_dialog_ = false;
+                needs_full_refresh_ = true;
+                return true;
+            case ButtonEvent::kUpLongPress:
+            case ButtonEvent::kDownLongPress:
+                // Cancel
+                showing_timeset_dialog_ = false;
                 needs_full_refresh_ = true;
                 return true;
             default:
@@ -1703,6 +1810,185 @@ void SettingsRenderer::RenderThemeDialog(uint8_t* fb, int width, int height) {
     DrawStyledText(fb, width, dialog_x + 24,
                    InkCenteredTextTopY(font_, hint, dialog_y + dialog_h - 18, 0),
                    hint, font_, text_style, height);
+}
+
+void SettingsRenderer::RenderListDialog(uint8_t* fb, int width, int height) {
+    const auto& theme = ThemeManager::Get();
+    const PaintStyle modal_style = theme.Component(ComponentRole::Modal);
+    const PaintStyle shadow_style = theme.Style(ThemeToken::Shadow);
+    const PaintStyle selected_style = theme.Component(ComponentRole::SettingsSelected);
+    const Color text = theme.ColorFor(ThemeToken::TextPrimary);
+    const Color secondary = theme.ColorFor(ThemeToken::TextSecondary);
+    const Color border = theme.ColorFor(ThemeToken::Border);
+    const Color danger = TokenInkOnPaper(ThemeToken::Danger);
+    const Color accent = TokenInkOnPaper(ThemeToken::Accent);
+    const int dialog_w = 316;
+    const int dialog_h = 240;
+    const int dialog_x = (width - dialog_w) / 2;
+    const int dialog_y = Style::kStatusBarHeight + 30;
+    const int content_right = dialog_x + dialog_w - 20;
+    const int titlebar_h = 28;
+    const int shadow_offset = 2;
+    const int row_h = kAboutRowHeight;
+
+    ClearDialogRegionRounded(fb, width, height, dialog_x + 3, dialog_y + 3, dialog_w, dialog_h,
+                             Style::kBorderRadiusMD, 2);
+    DrawStyledRoundRect(fb, width, height, {dialog_x + shadow_offset, dialog_y + shadow_offset, dialog_w, dialog_h},
+                        Style::kBorderRadiusMD, shadow_style);
+    DrawStyledRoundRect(fb, width, height, {dialog_x, dialog_y, dialog_w, dialog_h},
+                        Style::kBorderRadiusMD, modal_style);
+    DrawHLine(fb, width, dialog_y + titlebar_h, dialog_x + 1, dialog_x + dialog_w - 2, border);
+    // Close box
+    DrawRectBorder(fb, width, {dialog_x + 8, dialog_y + 8, 12, 12}, 1, danger);
+    DrawLine(fb, width, {dialog_x + 10, dialog_y + 10}, {dialog_x + 18, dialog_y + 18}, danger);
+    DrawLine(fb, width, {dialog_x + 18, dialog_y + 10}, {dialog_x + 10, dialog_y + 18}, danger);
+
+    const int title_w = MeasureTextWidth(list_dialog_title_.c_str(), font_);
+    DrawText(fb, width, dialog_x + (dialog_w - title_w) / 2,
+             InkCenteredTextTopYInBox(font_, list_dialog_title_.c_str(), dialog_y, titlebar_h, 0),
+             list_dialog_title_.c_str(), font_, text, height);
+
+    // Title-bar stripes
+    for (int yy = dialog_y + 6; yy < dialog_y + titlebar_h - 5; yy += 4) {
+        DrawHLine(fb, width, yy, dialog_x + 28, dialog_x + (dialog_w - title_w) / 2 - 8, border);
+        DrawHLine(fb, width, yy, dialog_x + (dialog_w + title_w) / 2 + 8, dialog_x + dialog_w - 12, border);
+    }
+
+    const int rows_x = dialog_x + 18;
+    int y = dialog_y + titlebar_h + 10;
+    const int total = static_cast<int>(list_dialog_options_.size());
+
+    if (total == 0) {
+        DrawText(fb, width, rows_x,
+                 InkCenteredTextTopY(font_, "无选项", y + row_h / 2, 0),
+                 "无选项", font_, secondary, height);
+    } else {
+        // Render visible rows with scrolling
+        const int visible_rows = std::min(kListDialogVisibleRows, total);
+        const int scroll_start = list_dialog_scroll_offset_;
+
+        for (int i = 0; i < visible_rows; ++i) {
+            const int item_idx = scroll_start + i;
+            if (item_idx >= total) break;
+
+            const std::string& opt = list_dialog_options_[item_idx];
+            const bool is_selected = (item_idx == list_dialog_selected_);
+            const int center_y = y + row_h / 2;
+
+            if (is_selected) {
+                DrawStyledRoundRect(fb, width, height, {rows_x - 4, y, content_right - rows_x + 8, row_h},
+                                    Style::kBorderRadiusSM, selected_style);
+            }
+
+            DrawText(fb, width, rows_x,
+                     InkCenteredTextTopY(font_, opt.c_str(), center_y, 0),
+                     opt.c_str(), font_, is_selected ? selected_style.fg : text, height);
+            y += row_h;
+        }
+
+        // Scroll indicator (if more items than visible)
+        if (total > kListDialogVisibleRows) {
+            const int scroll_bar_x = content_right + 4;
+            const int scroll_bar_h = kListDialogVisibleRows * row_h;
+            const int scroll_bar_y = dialog_y + titlebar_h + 10;
+            DrawVLine(fb, width, scroll_bar_x, scroll_bar_y, scroll_bar_y + scroll_bar_h, border);
+
+            const int thumb_h = scroll_bar_h * kListDialogVisibleRows / total;
+            const int thumb_y = scroll_bar_y + (scroll_start * scroll_bar_h / total);
+            DrawRect(fb, width, {scroll_bar_x - 2, thumb_y, 4, thumb_h}, accent);
+        }
+    }
+
+    // Hint
+    const int hint_center_y = dialog_y + dialog_h - 20;
+    DrawText(fb, width, dialog_x + 30,
+             InkCenteredTextTopY(font_, "UP/DN 滚动  BOOT 选择  长按取消", hint_center_y, 0),
+             "UP/DN 滚动  BOOT 选择  长按取消", font_, secondary, height);
+}
+
+void SettingsRenderer::RenderTimeSetDialog(uint8_t* fb, int width, int height) {
+    const auto& theme = ThemeManager::Get();
+    const PaintStyle modal_style = theme.Component(ComponentRole::Modal);
+    const PaintStyle shadow_style = theme.Style(ThemeToken::Shadow);
+    const PaintStyle selected_style = theme.Component(ComponentRole::SettingsSelected);
+    const Color text = theme.ColorFor(ThemeToken::TextPrimary);
+    const Color secondary = theme.ColorFor(ThemeToken::TextSecondary);
+    const Color border = theme.ColorFor(ThemeToken::Border);
+    const Color accent = TokenInkOnPaper(ThemeToken::Accent);
+    const int dialog_w = 280;
+    const int dialog_h = 190;
+    const int dialog_x = (width - dialog_w) / 2;
+    const int dialog_y = Style::kStatusBarHeight + 40;
+    const int titlebar_h = 28;
+    const int shadow_offset = 2;
+
+    ClearDialogRegionRounded(fb, width, height, dialog_x + 3, dialog_y + 3, dialog_w, dialog_h,
+                             Style::kBorderRadiusMD, 2);
+    DrawStyledRoundRect(fb, width, height, {dialog_x + shadow_offset, dialog_y + shadow_offset, dialog_w, dialog_h},
+                        Style::kBorderRadiusMD, shadow_style);
+    DrawStyledRoundRect(fb, width, height, {dialog_x, dialog_y, dialog_w, dialog_h},
+                        Style::kBorderRadiusMD, modal_style);
+    DrawHLine(fb, width, dialog_y + titlebar_h, dialog_x + 1, dialog_x + dialog_w - 2, border);
+
+    const char* title = "设置时间";
+    const int title_w = MeasureTextWidth(title, font_);
+    DrawText(fb, width, dialog_x + (dialog_w - title_w) / 2,
+             InkCenteredTextTopYInBox(font_, title, dialog_y, titlebar_h, 0),
+             title, font_, text, height);
+
+    for (int yy = dialog_y + 6; yy < dialog_y + titlebar_h - 5; yy += 4) {
+        DrawHLine(fb, width, yy, dialog_x + 28, dialog_x + (dialog_w - title_w) / 2 - 8, border);
+        DrawHLine(fb, width, yy, dialog_x + (dialog_w + title_w) / 2 + 8, dialog_x + dialog_w - 12, border);
+    }
+
+    // Big HH:MM display, one digit group per field box.
+    char time_buf[8];
+    snprintf(time_buf, sizeof(time_buf), "%02d:%02d", timeset_hour_, timeset_minute_);
+    const int time_y = dialog_y + titlebar_h + 22;
+    const int time_w = MeasureTextWidth(time_buf, title_font_);
+    const int time_x = dialog_x + (dialog_w - time_w) / 2;
+    DrawText(fb, width, time_x, time_y, time_buf, title_font_, text, height);
+
+    // Active-field box: highlight the digit group being edited. Estimate
+    // each group width from the total (5 chars: DD:DD, groups are chars 0-1
+    // and 3-4).
+    const int group_w = time_w * 2 / 5;
+    int box_x = 0;
+    if (timeset_field_ == 0) {
+        box_x = time_x;
+    } else if (timeset_field_ == 1) {
+        box_x = time_x + time_w - group_w;
+    }
+    if (timeset_field_ <= 1) {
+        DrawRectBorder(fb, width, {box_x - 3, time_y - 3, group_w + 6,
+                                   static_cast<int>(title_font_->line_height) + 6},
+                       2, accent);
+    } else {
+        // Confirm state: draw a check mark ring next to the time
+        const int ok_x = dialog_x + dialog_w / 2;
+        const int ok_y = time_y + static_cast<int>(title_font_->line_height) + 14;
+        const bool ready = true;
+        const PaintStyle& ok_style = ready ? selected_style : modal_style;
+        DrawStyledRoundRect(fb, width, height, {ok_x - 34, ok_y - 2, 68, 24},
+                            Style::kBorderRadiusSM, ok_style);
+        const char* ok_text = "确认保存";
+        DrawText(fb, width, ok_x - MeasureTextWidth(ok_text, font_) / 2,
+                 InkCenteredTextTopY(font_, ok_text, ok_y + 10, 0),
+                 ok_text, font_, ready ? ok_style.fg : secondary);
+    }
+
+    // Hint row: active-field specific
+    const char* hint = nullptr;
+    if (timeset_field_ == 0) {
+        hint = "UP/DN 调时  BOOT 下一步";
+    } else if (timeset_field_ == 1) {
+        hint = "UP/DN 调分  BOOT 确认";
+    } else {
+        hint = "BOOT 保存  长按UP 取消";
+    }
+    DrawText(fb, width, dialog_x + (dialog_w - MeasureTextWidth(hint, font_)) / 2,
+             InkCenteredTextTopY(font_, hint, dialog_y + dialog_h - 18, 0),
+             hint, font_, secondary, height);
 }
 
 void SettingsRenderer::RenderOtaDialog(uint8_t* fb, int width, int height) {

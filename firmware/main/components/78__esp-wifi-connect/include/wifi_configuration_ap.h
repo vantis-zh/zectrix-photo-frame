@@ -55,6 +55,12 @@ public:
      */
     void OnExitRequested(std::function<void()> callback);
 
+    /**
+     * Set callback for when the web portal requests to open the settings
+     * page on the device screen (POST /device-settings endpoint).
+     */
+    void OnOpenDeviceSettingsRequested(std::function<void()> callback);
+
 private:
     std::mutex mutex_;
     std::unique_ptr<DnsServer> dns_server_;
@@ -83,6 +89,7 @@ private:
 
     // Callbacks
     std::function<void()> on_exit_requested_;
+    std::function<void()> on_open_device_settings_requested_;
 
     void StartAccessPoint();
     void StartWebServer();

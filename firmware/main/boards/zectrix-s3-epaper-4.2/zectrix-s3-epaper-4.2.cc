@@ -147,6 +147,9 @@ public:
                 case WifiEvent::ConfigModeExit:
                     network_event_callback_(NetworkEvent::WifiConfigModeExit, "");
                     break;
+                case WifiEvent::OpenDeviceSettings:
+                    network_event_callback_(NetworkEvent::OpenDeviceSettings, "");
+                    break;
             }
         });
 

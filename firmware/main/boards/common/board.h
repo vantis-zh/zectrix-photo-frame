@@ -14,6 +14,7 @@ enum class NetworkEvent {
     Disconnected,          // Network disconnected
     WifiConfigModeEnter,   // Entered WiFi configuration mode
     WifiConfigModeExit,    // Exited WiFi configuration mode
+    OpenDeviceSettings,    // Portal requested to open on-device settings page
     // Cellular modem specific events
     ModemDetecting,        // Detecting modem (baud rate, module type)
     ModemErrorNoSim,       // No SIM card detected

@@ -700,6 +700,36 @@ void WifiConfigurationAp::StartWebServer()
     };
     ESP_ERROR_CHECK(httpd_register_uri_handler(server_, &advanced_submit));
 
+    // Register the /device-settings endpoint - asks the device to show its
+    // settings page on the e-paper screen (not a web page).
+    httpd_uri_t device_settings = {
+        .uri = "/device-settings",
+        .method = HTTP_POST,
+        .handler = [](httpd_req_t *req) -> esp_err_t {
+            auto* this_ = static_cast<WifiConfigurationAp*>(req->user_ctx);
+
+            httpd_resp_set_type(req, "application/json");
+            httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+            httpd_resp_set_hdr(req, "Connection", "close");
+            httpd_resp_send(req, "{\"success\":true}", HTTPD_RESP_USE_STRLEN);
+
+            // Delayed callback so the HTTP response is fully sent first.
+            ESP_LOGI(TAG, "Opening device settings page requested from web...");
+            xTaskCreate([](void *ctx) {
+                vTaskDelay(pdMS_TO_TICKS(200));
+                auto* self = static_cast<WifiConfigurationAp*>(ctx);
+                if (self->on_open_device_settings_requested_) {
+                    self->on_open_device_settings_requested_();
+                }
+                vTaskDelete(NULL);
+            }, "device_set_task", 8192, this_, 5, NULL);
+
+            return ESP_OK;
+        },
+        .user_ctx = this
+    };
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server_, &device_settings));
+
     ESP_LOGI(TAG, "Web server started");
 }
 
@@ -775,6 +805,11 @@ void WifiConfigurationAp::Save(const std::string &ssid, const std::string &passw
 void WifiConfigurationAp::OnExitRequested(std::function<void()> callback)
 {
     on_exit_requested_ = callback;
+}
+
+void WifiConfigurationAp::OnOpenDeviceSettingsRequested(std::function<void()> callback)
+{
+    on_open_device_settings_requested_ = callback;
 }
 
 void WifiConfigurationAp::WifiEventHandler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)

@@ -3,6 +3,7 @@
 #include "boards/zectrix-s3-epaper-4.2/custom_lcd_display.h"
 #include "boards/zectrix-s3-epaper-4.2/config.h"
 #include "board.h"
+#include "common/frame_settings.h"
 #include "common/photo_storage.h"
 #include "common/remote_photo_service.h"
 #include "display.h"
@@ -26,9 +27,11 @@ constexpr char kSyncNamespace[] = "sync";
 constexpr char kSyncIntervalKey[] = "sync_interval";
 // Item indexes for the trimmed settings list. Keep in sync with the
 // items.push_back order in Initialize(): 0 系统 1 重启 2 图片(section)
-// 3 拉取新图 4 图片来源 5 关于 6 固件
+// 3 拉取新图 4 图片来源 5 时区 6 自动刷新 7 关于 8 固件
 constexpr int kSettingsFetchNowIndex = 3;
 constexpr int kSettingsImageSourceIndex = 4;
+constexpr int kSettingsTzIndex = 5;
+constexpr int kSettingsRefreshIndex = 6;
 
 std::string FormatImageSourceLabel(const std::string& url) {
     if (url.empty() || url.find("loremflickr") != std::string::npos) return "默认";
@@ -40,7 +43,10 @@ void StartSntpClockSyncOnce() {
     static bool s_started = false;
     if (s_started) return;
 
-    setenv("TZ", "CST-8", 1);
+    // SNTP always syncs in UTC; TZ only affects local display and
+    // "fixed time" auto-refresh semantics (see FrameSettings).
+    const std::string tz = FrameSettings::GetTz();
+    setenv("TZ", tz.c_str(), 1);
     tzset();
     esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
     esp_sntp_setservername(0, "ntp.aliyun.com");
@@ -58,7 +64,7 @@ void StartSntpClockSyncOnce() {
     });
     esp_sntp_init();
     s_started = true;
-    ESP_LOGI(kTag, "SNTP started: tz=Asia/Shanghai servers=ntp.aliyun.com,cn.pool.ntp.org,pool.ntp.org");
+    ESP_LOGI(kTag, "SNTP started: tz=%s servers=ntp.aliyun.com,cn.pool.ntp.org,pool.ntp.org", tz.c_str());
 }
 
 bool IsLocalHttpServiceRunning(const ui::RawDrawUiManager* manager) {
@@ -148,6 +154,150 @@ void Application::Initialize() {
                                  sr->UpdateItem(kSettingsImageSourceIndex, kLabels[s_index]);
                              }
                          }});
+        // Timezone: pick from the built-in list, saved to NVS ("frame"/tz).
+        // Takes effect immediately (setenv TZ + tzset) — SNTP always syncs
+        // in UTC, so only local display / "fixed time" semantics change.
+        {
+            std::string tz_label;
+            FrameSettings::FormatTzLabel(FrameSettings::GetTz(), tz_label);
+            items.push_back({"时区", tz_label, nullptr,
+                             rawdraw::SettingsItemType::Action, false,
+                             [sr]() {
+                                 if (!sr) return;
+                                 std::vector<std::string> options;
+                                 for (int i = 0; i < FrameSettings::kTimeZoneCount; ++i) {
+                                     options.push_back(FrameSettings::kTimeZoneList[i].label);
+                                 }
+                                 const int cur_idx = FrameSettings::GetTzIndex();
+                                 sr->ShowListDialog("设置时区", options,
+                                                    options[cur_idx]);
+                                 sr->SetListDialogHandler(
+                                     [sr](int index) {
+                                         if (index < 0 ||
+                                             index >= FrameSettings::kTimeZoneCount) {
+                                             return;  // cancelled
+                                         }
+                                         const char* new_tz =
+                                             FrameSettings::kTimeZoneList[index].posix;
+                                         FrameSettings::SetTz(new_tz);
+                                         // Apply immediately in this session:
+                                         // SNTP stays UTC, but the status-bar
+                                         // clock and "fixed time" auto-refresh
+                                         // now use the new local timezone.
+                                         setenv("TZ", new_tz, 1);
+                                         tzset();
+                                         if (sr) {
+                                             sr->UpdateItem(kSettingsTzIndex,
+                                                            FrameSettings::kTimeZoneList[index].label);
+                                         }
+                                     });
+                             }});
+        }
+        // Auto refresh mode: off / interval / fixed daily time, saved to
+        // NVS ("frame"). Used by EnterScheduledSleep to arm the RTC wakeup.
+        {
+            std::string refresh_label;
+            FrameSettings::FormatAutoRefresh(FrameSettings::GetAutoRefresh(),
+                                             refresh_label);
+            items.push_back({"自动刷新", refresh_label, nullptr,
+                             rawdraw::SettingsItemType::Action, false,
+                             [sr]() {
+                                 if (!sr) return;
+                                 static const std::vector<std::string> kModes = {
+                                     "关闭", "间隔时长", "固定时间"};
+                                 const FrameSettings::AutoRefreshConfig cur =
+                                     FrameSettings::GetAutoRefresh();
+                                 const std::string cur_label =
+                                     cur.mode == FrameSettings::kRefreshModeOff
+                                         ? "关闭"
+                                         : (cur.mode == FrameSettings::kRefreshModeInterval
+                                                ? "间隔时长"
+                                                : "固定时间");
+                                 sr->ShowListDialog("自动刷新", kModes, cur_label);
+                                 sr->SetListDialogHandler([sr](int index) {
+                                     if (index < 0) return;  // cancelled
+                                     if (index == 0) {
+                                         // Off: still sleep for power saving,
+                                         // but no timer wakeup (BOOT only).
+                                         FrameSettings::AutoRefreshConfig cfg =
+                                             FrameSettings::GetAutoRefresh();
+                                         cfg.mode = FrameSettings::kRefreshModeOff;
+                                         FrameSettings::SetAutoRefresh(cfg);
+                                         std::string label;
+                                         FrameSettings::FormatAutoRefresh(cfg, label);
+                                         sr->UpdateItem(kSettingsRefreshIndex, label);
+                                         return;
+                                     }
+                                     if (index == 1) {
+                                         // Interval mode: mixed duration
+                                         // presets (value + unit in one pick).
+                                         struct IntervalPreset {
+                                             int interval;
+                                             int unit;
+                                             const char* label;
+                                         };
+                                         static const IntervalPreset kPresets[] = {
+                                             {15, FrameSettings::kUnitMinutes, "15 分钟"},
+                                             {30, FrameSettings::kUnitMinutes, "30 分钟"},
+                                             {1, FrameSettings::kUnitHours, "1 小时"},
+                                             {2, FrameSettings::kUnitHours, "2 小时"},
+                                             {6, FrameSettings::kUnitHours, "6 小时"},
+                                             {12, FrameSettings::kUnitHours, "12 小时"},
+                                             {24, FrameSettings::kUnitHours, "24 小时"},
+                                         };
+                                         constexpr int kPresetCount =
+                                             static_cast<int>(sizeof(kPresets) / sizeof(kPresets[0]));
+                                         std::vector<std::string> preset_labels;
+                                         const FrameSettings::AutoRefreshConfig cur2 =
+                                             FrameSettings::GetAutoRefresh();
+                                         std::string cur_preset_label = kPresets[0].label;
+                                         for (int i = 0; i < kPresetCount; ++i) {
+                                             preset_labels.push_back(kPresets[i].label);
+                                             if (cur2.mode == FrameSettings::kRefreshModeInterval &&
+                                                 cur2.interval == kPresets[i].interval &&
+                                                 cur2.unit == kPresets[i].unit) {
+                                                 cur_preset_label = kPresets[i].label;
+                                             }
+                                         }
+                                         sr->ShowListDialog("间隔时长", preset_labels,
+                                                            cur_preset_label);
+                                         sr->SetListDialogHandler([sr](int preset_idx) {
+                                             if (preset_idx < 0 || preset_idx >= kPresetCount) {
+                                                 return;  // cancelled
+                                             }
+                                             FrameSettings::AutoRefreshConfig cfg =
+                                                 FrameSettings::GetAutoRefresh();
+                                             cfg.mode = FrameSettings::kRefreshModeInterval;
+                                             cfg.interval = kPresets[preset_idx].interval;
+                                             cfg.unit = kPresets[preset_idx].unit;
+                                             FrameSettings::SetAutoRefresh(cfg);
+                                             std::string label;
+                                             FrameSettings::FormatAutoRefresh(cfg, label);
+                                             sr->UpdateItem(kSettingsRefreshIndex, label);
+                                         });
+                                         return;
+                                     }
+                                     if (index == 2) {
+                                         // Fixed-time mode: three-field
+                                         // editor (hour -> minute -> confirm).
+                                         FrameSettings::AutoRefreshConfig cfg =
+                                             FrameSettings::GetAutoRefresh();
+                                         sr->ShowTimeSetDialog(cfg.minutes_of_day);
+                                         sr->SetTimeSetDialogHandler([sr](int minutes_of_day) {
+                                             FrameSettings::AutoRefreshConfig cfg2 =
+                                                 FrameSettings::GetAutoRefresh();
+                                             cfg2.mode = FrameSettings::kRefreshModeFixedTime;
+                                             cfg2.minutes_of_day = minutes_of_day;
+                                             FrameSettings::SetAutoRefresh(cfg2);
+                                             std::string label;
+                                             FrameSettings::FormatAutoRefresh(cfg2, label);
+                                             sr->UpdateItem(kSettingsRefreshIndex, label);
+                                         });
+                                         return;
+                                     }
+                                 });
+                             }});
+        }
         items.push_back({"关于", "", nullptr, rawdraw::SettingsItemType::Section, false});
         items.push_back({"固件", PROJECT_VER, nullptr, rawdraw::SettingsItemType::Normal, false});
         sr->SetItems(items);
@@ -181,13 +331,14 @@ void Application::Initialize() {
                 wifi_connected_.store(true, std::memory_order_release);
                 StartSntpClockSyncOnce();
                 // First remote photo fetch after boot. BOOT click on the
-                // gallery also triggers it. Daily auto refresh is handled
-                // by the midnight RTC wake-up (see EnterScheduledSleep).
+                // gallery also triggers it. Scheduled auto refresh (interval
+                // or fixed time, user-configurable) is handled by the RTC
+                // timer wake-up (see EnterScheduledSleep).
                 if (esp_reset_reason() == ESP_RST_DEEPSLEEP &&
                     wake_cause_ == ESP_SLEEP_WAKEUP_TIMER) {
-                    // Scheduled midnight refresh: fetch automatically.
-                    ESP_LOGI(kTag, "midnight RTC wake-up: fetching new photo");
-                    RemotePhotoService::GetInstance().RequestRefresh("midnight-timer");
+                    // Scheduled auto refresh: fetch automatically.
+                    ESP_LOGI(kTag, "auto refresh timer wake-up: fetching new photo");
+                    RemotePhotoService::GetInstance().RequestRefresh("auto-refresh");
                 } else {
                     // Manual wake (BOOT) or power-on: show stored photo,
                     // no automatic fetch.
@@ -199,7 +350,7 @@ void Application::Initialize() {
                     rawdraw_ui_manager_->SwitchPage(ui::RawDrawPageId::Gallery);
                 }
                 UpdateStatusBarForUi();
-                // After a scheduled midnight refresh, go back to sleep
+                // After a scheduled auto refresh, go back to sleep
                 // quickly (photo already fetched/EPD refreshing); other
                 // boots keep the user-configured sync interval.
                 ArmSyncSleepTimer(esp_reset_reason() == ESP_RST_DEEPSLEEP &&
@@ -237,6 +388,15 @@ void Application::Initialize() {
                 wifi_connected_.store(WifiManager::GetInstance().IsConnected(),
                                       std::memory_order_release);
                 UpdateStatusBarForUi();
+                break;
+            case NetworkEvent::OpenDeviceSettings:
+                ESP_LOGI(kTag, "Open device settings requested from web portal");
+                if (rawdraw_ui_manager_) {
+                    // Jump to the on-device settings page; the user
+                    // continues on the screen (UP long press returns to
+                    // the gallery as usual).
+                    rawdraw_ui_manager_->SwitchPage(ui::RawDrawPageId::Settings);
+                }
                 break;
             case NetworkEvent::ModemDetecting:
             case NetworkEvent::ModemErrorNoSim:
@@ -390,50 +550,31 @@ void Application::ArmSyncSleepTimer(int override_minutes) {
     ESP_ERROR_CHECK(esp_timer_start_once(sleep_timer_, delay_us));
 }
 
-int64_t Application::MicrosUntilNextLocalMidnight() {
-    time_t now = time(nullptr);
-    struct tm tmv;
-    localtime_r(&now, &tmv);
-    if (tmv.tm_year <= 100) {
-        // SNTP not synced yet: retry in 24h so the next wake still lands
-        // near a midnight instead of spinning.
-        ESP_LOGW(kTag, "clock not synced; scheduling next refresh in 24h");
-        return 24LL * 60 * 60 * 1000 * 1000;
-    }
-    // Next local 00:00
-    struct tm next = tmv;
-    next.tm_hour = 0;
-    next.tm_min = 0;
-    next.tm_sec = 0;
-    next.tm_mday += 1;
-    time_t next_midnight = mktime(&next);  // normalizes overflow
-    int64_t delay_s = static_cast<int64_t>(next_midnight - now);
-    if (delay_s < 60) {
-        delay_s = 60;  // sanity floor: never sleep for less than a minute
-    }
-    ESP_LOGI(kTag, "next local midnight in %lld s (%.1f h)",
-             (long long)delay_s, delay_s / 3600.0);
-    return delay_s * 1000LL * 1000LL;
-}
-
 void Application::EnterScheduledSleep() {
     const bool scheduled_refresh =
         wake_cause_ == ESP_SLEEP_WAKEUP_TIMER;
-    // After a scheduled midnight refresh, do not honor the 30-min sync
+    // After a scheduled auto refresh, do not honor the 30-min sync
     // interval: arm a short "cooling" timer so the device goes back to
-    // sleep and the next wake lands on the following midnight.
+    // sleep and the next wake lands on the following schedule point.
     const int override_minutes = scheduled_refresh ? kPostRefreshAwakeMinutes : -1;
     ESP_LOGI(kTag, "Scheduling sleep: override_minutes=%d (scheduled_refresh=%d)",
              override_minutes, scheduled_refresh ? 1 : 0);
 
-    // RTC alarm wakes the device at the next local midnight; on wake the
-    // normal boot path runs (WiFi -> fetch new photo -> EPD refresh).
-    const uint64_t midnight_us = static_cast<uint64_t>(MicrosUntilNextLocalMidnight());
-    esp_sleep_enable_timer_wakeup(midnight_us);
-    ESP_LOGI(kTag, "RTC wake-up armed for next local midnight (%llu min)",
-             (unsigned long long)(midnight_us / 60000000ULL));
+    // RTC timer wakes the device for the next auto refresh (interval or
+    // fixed local time); on wake the normal boot path runs
+    // (WiFi -> fetch new photo -> EPD refresh). With auto refresh off, no
+    // timer wakeup is armed: only the BOOT button can wake the device.
+    const FrameSettings::AutoRefreshConfig cfg = FrameSettings::GetAutoRefresh();
+    const int64_t next_refresh_us = FrameSettings::MicrosUntilNextRefresh(cfg, time(nullptr));
+    if (next_refresh_us >= 0) {
+        esp_sleep_enable_timer_wakeup(static_cast<uint64_t>(next_refresh_us));
+        ESP_LOGI(kTag, "RTC wake-up armed for auto refresh (%lld min)",
+                 (long long)(next_refresh_us / 60000000LL));
+    } else {
+        ESP_LOGI(kTag, "auto refresh disabled: timer wake-up not armed (BOOT only)");
+    }
 
-    ESP_LOGI(kTag, "Entering deep sleep; BOOT wakes device, timer wakes at midnight");
+    ESP_LOGI(kTag, "Entering deep sleep; BOOT wakes device, timer wakes for auto refresh");
     wifi_connected_.store(false, std::memory_order_release);
     esp_wifi_disconnect();
     esp_wifi_stop();

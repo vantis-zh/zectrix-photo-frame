@@ -309,6 +309,12 @@ void WifiManager::StartConfigAp() {
         StopConfigAp();
         StartStation();
     });
+
+    // Web handler calls this when user asks to open settings on the screen
+    config_ap_->OnOpenDeviceSettingsRequested([this]() {
+        ESP_LOGI(TAG, "Open device settings requested from web");
+        NotifyEvent(WifiEvent::OpenDeviceSettings);
+    });
     
     config_ap_->Start();
     config_mode_active_ = true;
