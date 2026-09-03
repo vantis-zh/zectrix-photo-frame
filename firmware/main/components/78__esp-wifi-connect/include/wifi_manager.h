@@ -32,6 +32,7 @@
 
 class WifiStation;
 class WifiConfigurationAp;
+struct FrameSettingsState;
 
 // WiFi events
 enum class WifiEvent {
@@ -99,8 +100,22 @@ public:
     void SetPowerSaveLevel(WifiPowerSaveLevel level);
 
     // ==================== Event ====================
-    
+
     void SetEventCallback(std::function<void(WifiEvent)> callback);
+
+    // ==================== Frame Settings (web portal) ====================
+
+    /**
+     * Set callback invoked when the web portal saves frame settings
+     * (POST /frame-settings). Forwarded to the config AP in StartConfigAp().
+     */
+    void SetOnFrameSettingsSave(std::function<void(const FrameSettingsState&)> callback);
+
+    /**
+     * Set callback returning the current frame settings for the web portal
+     * (GET /frame-settings). Forwarded to the config AP in StartConfigAp().
+     */
+    void SetOnFrameSettingsQuery(std::function<FrameSettingsState()> callback);
 
     const WifiManagerConfig& GetConfig() const { return config_; }
 
@@ -124,6 +139,8 @@ private:
     NetworkProbeTarget probe_target_ = NetworkProbeTarget::Mqtt;
 
     std::function<void(WifiEvent)> event_callback_;
+    std::function<void(const FrameSettingsState&)> on_frame_settings_save_;
+    std::function<FrameSettingsState()> on_frame_settings_query_;
     mutable std::string mac_address_;
 };
 

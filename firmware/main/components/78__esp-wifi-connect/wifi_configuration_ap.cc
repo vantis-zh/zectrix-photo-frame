@@ -730,6 +730,199 @@ void WifiConfigurationAp::StartWebServer()
     };
     ESP_ERROR_CHECK(httpd_register_uri_handler(server_, &device_settings));
 
+    // Register the GET /frame-settings endpoint - returns the current frame
+    // settings (timezone + auto refresh) as JSON via the application-layer
+    // query callback.
+    httpd_uri_t frame_settings_get = {
+        .uri = "/frame-settings",
+        .method = HTTP_GET,
+        .handler = [](httpd_req_t *req) -> esp_err_t {
+            auto* this_ = static_cast<WifiConfigurationAp*>(req->user_ctx);
+
+            httpd_resp_set_type(req, "application/json");
+            httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+            httpd_resp_set_hdr(req, "Connection", "close");
+
+            if (!this_->on_frame_settings_query_) {
+                httpd_resp_send(req, "{\"success\":false,\"error\":\"not ready\"}", HTTPD_RESP_USE_STRLEN);
+                return ESP_OK;
+            }
+
+            const FrameSettingsState state = this_->on_frame_settings_query_();
+            cJSON *json = cJSON_CreateObject();
+            if (!json) {
+                httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to create JSON");
+                return ESP_FAIL;
+            }
+            cJSON_AddStringToObject(json, "tz", state.tz.c_str());
+            cJSON_AddNumberToObject(json, "refresh_mode", state.refresh_mode);
+            cJSON_AddNumberToObject(json, "refresh_interval_minutes", state.refresh_interval_minutes);
+            cJSON_AddNumberToObject(json, "refresh_time", state.refresh_time);
+
+            char *json_str = cJSON_PrintUnformatted(json);
+            cJSON_Delete(json);
+            if (!json_str) {
+                httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to print JSON");
+                return ESP_FAIL;
+            }
+            httpd_resp_send(req, json_str, strlen(json_str));
+            free(json_str);
+            return ESP_OK;
+        },
+        .user_ctx = this
+    };
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server_, &frame_settings_get));
+
+    // Register the POST /frame-settings endpoint - validates and applies the
+    // frame settings submitted from the web portal. The application-layer
+    // save callback runs in a deferred task (same pattern as /device-settings)
+    // so the HTTP response is fully sent first.
+    httpd_uri_t frame_settings_post = {
+        .uri = "/frame-settings",
+        .method = HTTP_POST,
+        .handler = [](httpd_req_t *req) -> esp_err_t {
+            char *buf;
+            size_t buf_len = req->content_len;
+            if (buf_len > 1024) {
+                httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Payload too large");
+                return ESP_FAIL;
+            }
+
+            buf = (char *)malloc(buf_len + 1);
+            if (!buf) {
+                httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to allocate memory");
+                return ESP_FAIL;
+            }
+
+            int ret = httpd_req_recv(req, buf, buf_len);
+            if (ret <= 0) {
+                free(buf);
+                if (ret == HTTPD_SOCK_ERR_TIMEOUT) {
+                    httpd_resp_send_408(req);
+                } else {
+                    httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Failed to receive request");
+                }
+                return ESP_FAIL;
+            }
+            buf[ret] = '\0';
+
+            cJSON *json = cJSON_Parse(buf);
+            free(buf);
+            if (!json) {
+                httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid JSON");
+                return ESP_FAIL;
+            }
+
+            // Validate the submitted fields.
+            cJSON *tz_item = cJSON_GetObjectItemCaseSensitive(json, "tz");
+            cJSON *mode_item = cJSON_GetObjectItemCaseSensitive(json, "refresh_mode");
+            cJSON *interval_item = cJSON_GetObjectItemCaseSensitive(json, "refresh_interval_minutes");
+            cJSON *time_item = cJSON_GetObjectItemCaseSensitive(json, "refresh_time");
+
+            std::string error;
+            std::string tz;
+            if (cJSON_IsString(tz_item) && tz_item->valuestring != NULL) {
+                tz = tz_item->valuestring;
+            }
+            if (tz.empty() || tz.size() >= 32) {
+                error = "Invalid timezone";
+            } else {
+                // Only printable ASCII so the TZ string is safe for setenv/NVS.
+                for (char c : tz) {
+                    if (static_cast<unsigned char>(c) < 0x20 ||
+                        static_cast<unsigned char>(c) > 0x7E) {
+                        error = "Invalid timezone";
+                        break;
+                    }
+                }
+            }
+            int mode = 0;
+            if (error.empty()) {
+                if (cJSON_IsNumber(mode_item)) {
+                    mode = mode_item->valueint;
+                }
+                if (mode < 0 || mode > 2) {
+                    error = "Invalid refresh mode";
+                }
+            }
+            int interval = 1440;
+            if (error.empty()) {
+                if (cJSON_IsNumber(interval_item)) {
+                    interval = interval_item->valueint;
+                }
+                if (interval < 5 || interval > 10080) {
+                    error = "Invalid refresh interval";
+                }
+            }
+            int minutes_of_day = 0;
+            if (error.empty()) {
+                if (cJSON_IsNumber(time_item)) {
+                    minutes_of_day = time_item->valueint;
+                }
+                if (minutes_of_day < 0 || minutes_of_day > 1439) {
+                    error = "Invalid refresh time";
+                }
+            }
+
+            if (!error.empty()) {
+                cJSON_Delete(json);
+                httpd_resp_set_type(req, "application/json");
+                httpd_resp_set_hdr(req, "Connection", "close");
+                httpd_resp_set_status(req, "400 Bad Request");
+                std::string body = "{\"success\":false,\"error\":\"" + error + "\"}";
+                httpd_resp_send(req, body.c_str(), HTTPD_RESP_USE_STRLEN);
+                return ESP_OK;
+            }
+
+            auto* this_ = static_cast<WifiConfigurationAp*>(req->user_ctx);
+            cJSON_Delete(json);
+
+            // Send the success response first, then apply via the deferred
+            // save callback (200 ms, same pattern as /device-settings).
+            httpd_resp_set_type(req, "application/json");
+            httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+            httpd_resp_set_hdr(req, "Connection", "close");
+            httpd_resp_send(req, "{\"success\":true}", HTTPD_RESP_USE_STRLEN);
+
+            ESP_LOGI(TAG, "Frame settings save requested: tz=%s mode=%d interval=%dmin time=%d",
+                     tz.c_str(), mode, interval, minutes_of_day);
+
+            // Heap-allocated context for the deferred task. Ownership is
+            // transferred to the task: it deletes the context after running
+            // the callback (delete before vTaskDelete, since vTaskDelete
+            // never returns and destructors would not run).
+            struct FrameSettingsSaveCtx {
+                WifiConfigurationAp* self;
+                FrameSettingsState state;
+            };
+            FrameSettingsSaveCtx* ctx = new FrameSettingsSaveCtx();
+            ctx->self = this_;
+            ctx->state.tz = tz;
+            ctx->state.refresh_mode = mode;
+            ctx->state.refresh_interval_minutes = interval;
+            ctx->state.refresh_time = minutes_of_day;
+
+            BaseType_t create_ok = xTaskCreate([](void *p) {
+                vTaskDelay(pdMS_TO_TICKS(200));
+                FrameSettingsSaveCtx* ctx = static_cast<FrameSettingsSaveCtx*>(p);
+                if (ctx->self->on_frame_settings_save_) {
+                    ctx->self->on_frame_settings_save_(ctx->state);
+                }
+                delete ctx;
+                vTaskDelete(NULL);
+            }, "frame_set_task", 8192, ctx, 5, NULL);
+            if (create_ok != pdPASS) {
+                // HTTP response already sent; only this save is dropped.
+                delete ctx;
+                ESP_LOGE(TAG, "Failed to create frame_set_task, save dropped");
+            }
+
+            return ESP_OK;
+        },
+        .user_ctx = this
+    };
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server_, &frame_settings_post));
+
     ESP_LOGI(TAG, "Web server started");
 }
 
@@ -810,6 +1003,16 @@ void WifiConfigurationAp::OnExitRequested(std::function<void()> callback)
 void WifiConfigurationAp::OnOpenDeviceSettingsRequested(std::function<void()> callback)
 {
     on_open_device_settings_requested_ = callback;
+}
+
+void WifiConfigurationAp::OnFrameSettingsSaveRequested(std::function<void(const FrameSettingsState&)> callback)
+{
+    on_frame_settings_save_ = callback;
+}
+
+void WifiConfigurationAp::OnFrameSettingsQuery(std::function<FrameSettingsState()> callback)
+{
+    on_frame_settings_query_ = callback;
 }
 
 void WifiConfigurationAp::WifiEventHandler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)

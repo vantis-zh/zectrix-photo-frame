@@ -17,8 +17,24 @@
 #include "sdkconfig.h"
 
 /**
+ * Frame settings exchanged between the web portal (GET/POST /frame-settings)
+ * and the application layer.
+ *
+ * refresh_mode: 0=off 1=interval 2=fixed time.
+ * refresh_interval_minutes: interval carried in minutes (5..10080); the
+ * application layer converts it to the best-fit NVS unit (minutes/hours).
+ * refresh_time: fixed time as minutes-of-day (0..1439).
+ */
+struct FrameSettingsState {
+    std::string tz;
+    int refresh_mode = 0;
+    int refresh_interval_minutes = 1440;
+    int refresh_time = 0;
+};
+
+/**
  * WifiConfigurationAp - WiFi configuration access point
- * 
+ *
  * Creates a WiFi hotspot with a captive portal for configuring WiFi credentials.
  * Note: WiFi driver must be initialized before using this class.
  */
@@ -61,6 +77,20 @@ public:
      */
     void OnOpenDeviceSettingsRequested(std::function<void()> callback);
 
+    /**
+     * Set callback for when the web portal saves frame settings
+     * (POST /frame-settings endpoint). Invoked from a deferred task after
+     * the HTTP response has been sent.
+     */
+    void OnFrameSettingsSaveRequested(std::function<void(const FrameSettingsState&)> callback);
+
+    /**
+     * Set callback for when the web portal queries the current frame
+     * settings (GET /frame-settings endpoint). Runs in the httpd handler
+     * context; must be quick and thread-safe.
+     */
+    void OnFrameSettingsQuery(std::function<FrameSettingsState()> callback);
+
 private:
     std::mutex mutex_;
     std::unique_ptr<DnsServer> dns_server_;
@@ -90,6 +120,8 @@ private:
     // Callbacks
     std::function<void()> on_exit_requested_;
     std::function<void()> on_open_device_settings_requested_;
+    std::function<void(const FrameSettingsState&)> on_frame_settings_save_;
+    std::function<FrameSettingsState()> on_frame_settings_query_;
 
     void StartAccessPoint();
     void StartWebServer();

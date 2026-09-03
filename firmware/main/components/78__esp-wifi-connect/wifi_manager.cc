@@ -315,6 +315,31 @@ void WifiManager::StartConfigAp() {
         ESP_LOGI(TAG, "Open device settings requested from web");
         NotifyEvent(WifiEvent::OpenDeviceSettings);
     });
+
+    // Web portal frame-settings endpoints delegate to the application layer.
+    // Callbacks are copied under lock and invoked without it (httpd context).
+    config_ap_->OnFrameSettingsSaveRequested([this](const FrameSettingsState& state) {
+        ESP_LOGI(TAG, "Frame settings save requested from web");
+        std::function<void(const FrameSettingsState&)> callback;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            callback = on_frame_settings_save_;
+        }
+        if (callback) {
+            callback(state);
+        }
+    });
+    config_ap_->OnFrameSettingsQuery([this]() -> FrameSettingsState {
+        std::function<FrameSettingsState()> callback;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            callback = on_frame_settings_query_;
+        }
+        if (callback) {
+            return callback();
+        }
+        return FrameSettingsState{};
+    });
     
     config_ap_->Start();
     config_mode_active_ = true;
@@ -378,4 +403,14 @@ void WifiManager::SetPowerSaveLevel(WifiPowerSaveLevel level) {
 void WifiManager::SetEventCallback(std::function<void(WifiEvent)> callback) {
     std::lock_guard<std::mutex> lock(mutex_);
     event_callback_ = std::move(callback);
+}
+
+void WifiManager::SetOnFrameSettingsSave(std::function<void(const FrameSettingsState&)> callback) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    on_frame_settings_save_ = std::move(callback);
+}
+
+void WifiManager::SetOnFrameSettingsQuery(std::function<FrameSettingsState()> callback) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    on_frame_settings_query_ = std::move(callback);
 }

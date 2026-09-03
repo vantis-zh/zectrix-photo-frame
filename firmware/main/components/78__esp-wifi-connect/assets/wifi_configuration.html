@@ -80,10 +80,25 @@
         /* ========== Tab Styles ========== */
         .tabs {
             display: flex;
+            flex-wrap: wrap;         /* extra tabs wrap instead of overflowing */
             margin-top: 20px;
             margin-bottom: 0;
             padding-left: 20px;
+            /* Reserve room for the absolutely-positioned language switcher
+               (top:20px; right:20px) so the last tab never overlaps it. */
+            padding-right: 200px;
             border-bottom: 1px solid #ccc;
+        }
+        @media (max-width: 600px) {
+            .tabs {
+                /* Narrow screens: the language select is compact, so a
+                   smaller reservation still avoids overlap at 375px. */
+                padding-left: 8px;
+                padding-right: 110px;
+            }
+            .tab {
+                padding: 10px 12px;
+            }
         }
         .tab {
             padding: 10px 20px;
@@ -320,9 +335,66 @@
         </form>
     </div>
 
-    <!-- Other Tab: device-side settings -->
+    <!-- Other Tab: frame settings (web) + device-side settings shortcut -->
     <div id="other-tab" class="tab-content">
         <div>
+            <h3 data-lang="frame_section_title">Frame Settings</h3>
+            <p class="error" style="color: red; text-align: center;" id="frame_settings_error"></p>
+
+            <!-- Timezone: keep this list in sync with
+                 main/common/frame_settings.cc kTimeZoneList -->
+            <p>
+                <label for="frame_tz" data-lang="tz_label">Timezone:</label>
+                <select id="frame_tz">
+                    <option value="CST-8">UTC+8 中国</option>
+                    <option value="CST-8">UTC+8 新加坡</option>
+                    <option value="JST-9">UTC+9 日本</option>
+                    <option value="KST-9">UTC+9 韩国</option>
+                    <option value="ICT-7">UTC+7 泰国越南</option>
+                    <option value="IST-5:30">UTC+5.5 印度</option>
+                    <option value="GST-4">UTC+4 迪拜</option>
+                    <option value="MSK-3">UTC+3 莫斯科</option>
+                    <option value="EET-2">UTC+2 开罗雅典</option>
+                    <option value="CET-1">UTC+1 中欧</option>
+                    <option value="GMT0">UTC+0 伦敦</option>
+                    <option value="UTC0">UTC0 协调世界时</option>
+                    <option value="EST5">UTC-5 美东</option>
+                    <option value="CST6">UTC-6 美中</option>
+                    <option value="MST7">UTC-7 美西山地</option>
+                    <option value="PST8">UTC-8 美西</option>
+                </select>
+            </p>
+
+            <!-- Auto refresh mode -->
+            <p>
+                <label for="frame_refresh_mode" data-lang="refresh_label">Auto Refresh:</label>
+                <select id="frame_refresh_mode" onchange="onFrameRefreshModeChange()">
+                    <option value="0" data-lang="refresh_mode_off">Off</option>
+                    <option value="1" data-lang="refresh_mode_interval">Interval</option>
+                    <option value="2" data-lang="refresh_mode_fixed">Fixed Time</option>
+                </select>
+            </p>
+
+            <!-- Interval mode: minutes (5..10080) -->
+            <p id="frame_refresh_interval_row" style="display: none;">
+                <label for="frame_refresh_interval" data-lang="interval_minutes_label">Interval (minutes):</label>
+                <input type="number" id="frame_refresh_interval" min="5" max="10080" value="1440">
+            </p>
+
+            <!-- Fixed time mode: minutes-of-day as HH:MM -->
+            <p id="frame_refresh_time_row" style="display: none;">
+                <label for="frame_refresh_time" data-lang="fixed_time_label">Fixed Time:</label>
+                <input type="time" id="frame_refresh_time" value="00:00">
+            </p>
+
+            <p style="text-align: center;">
+                <input type="button" value="Save Frame Settings" id="frame_settings_button"
+                       data-lang-value="save_frame_settings" onclick="saveFrameSettings()">
+            </p>
+
+            <hr>
+
+            <!-- Secondary entry: open the on-device settings page -->
             <h3 data-lang="other_tab">Other</h3>
             <p style="text-align: center; color: #666;">
                 <span data-lang="device_settings_hint">The settings page will open on the device screen. Please continue on the device.</span>
@@ -344,6 +416,16 @@
         // ========== Translation Data ==========
         const translations = {
             'ar-SA': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'تكوين الشبكة',
                 saved_wifi: 'Wi-Fi المحفوظة',
                 new_wifi: 'Wi-Fi جديد',
@@ -365,6 +447,16 @@
                 save: 'حفظ'
             },
             'bg-BG': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'Конфигурация на мрежата',
                 saved_wifi: 'Запазени Wi-Fi',
                 new_wifi: 'Нов Wi-Fi',
@@ -386,6 +478,16 @@
                 save: 'Запазване'
             },
             'ca-ES': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'Configuració de xarxa',
                 saved_wifi: 'Wi-Fi desats',
                 new_wifi: 'Nou Wi-Fi',
@@ -407,6 +509,16 @@
                 save: 'Desar'
             },
             'cs-CZ': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'Konfigurace sítě',
                 saved_wifi: 'Uložené Wi-Fi',
                 new_wifi: 'Nové Wi-Fi',
@@ -428,6 +540,16 @@
                 save: 'Uložit'
             },
             'da-DK': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'Netværkskonfiguration',
                 saved_wifi: 'Gemte Wi-Fi',
                 new_wifi: 'Ny Wi-Fi',
@@ -449,6 +571,16 @@
                 save: 'Gem'
             },
             'de-DE': {
+                frame_section_title: 'Rahmeneinstellungen',
+                tz_label: 'Zeitzone:',
+                refresh_label: 'Automatische Aktualisierung:',
+                refresh_mode_off: 'Aus',
+                refresh_mode_interval: 'Intervall',
+                refresh_mode_fixed: 'Feste Zeit',
+                interval_minutes_label: 'Intervall (Minuten):',
+                fixed_time_label: 'Feste Zeit:',
+                save_frame_settings: 'Rahmeneinstellungen speichern',
+                frame_settings_saved: 'Rahmeneinstellungen gespeichert',
                 title: 'Netzwerk-Konfiguration',
                 saved_wifi: 'Gespeicherte Wi-Fi-Verbindungen',
                 new_wifi: 'Neue Wi-Fi-Verbindung',
@@ -470,6 +602,16 @@
                 save: 'Speichern'
             },
             'el-GR': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'Διαμόρφωση δικτύου',
                 saved_wifi: 'Αποθηκευμένα Wi-Fi',
                 new_wifi: 'Νέο Wi-Fi',
@@ -491,6 +633,16 @@
                 save: 'Αποθήκευση'
             },
             'en-US': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'Network Configuration',
                 saved_wifi: 'Saved Wi-Fi',
                 new_wifi: 'New Wi-Fi',
@@ -512,6 +664,16 @@
                 save: 'Save'
             },
             'es-ES': {
+                frame_section_title: 'Ajustes del marco',
+                tz_label: 'Zona horaria:',
+                refresh_label: 'Actualización automática:',
+                refresh_mode_off: 'Desactivado',
+                refresh_mode_interval: 'Intervalo',
+                refresh_mode_fixed: 'Hora fija',
+                interval_minutes_label: 'Intervalo (minutos):',
+                fixed_time_label: 'Hora fija:',
+                save_frame_settings: 'Guardar ajustes del marco',
+                frame_settings_saved: 'Ajustes del marco guardados',
                 title: 'Configuración de red',
                 saved_wifi: 'Wi-Fi guardados',
                 new_wifi: 'Nuevo Wi-Fi',
@@ -533,6 +695,16 @@
                 save: 'Guardar'
             },
             'fa-IR': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'پیکربندی شبکه',
                 saved_wifi: 'Wi-Fi ذخیره شده',
                 new_wifi: 'Wi-Fi جدید',
@@ -554,6 +726,16 @@
                 save: 'ذخیره'
             },
             'fi-FI': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'Verkon määritys',
                 saved_wifi: 'Tallennetut Wi-Fi',
                 new_wifi: 'Uusi Wi-Fi',
@@ -575,6 +757,16 @@
                 save: 'Tallenna'
             },
             'fil-PH': {
+                frame_section_title: 'Mga Setting ng Frame',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Naka-off',
+                refresh_mode_interval: 'Pagitan',
+                refresh_mode_fixed: 'Nakatakdang Oras',
+                interval_minutes_label: 'Pagitan (minuto):',
+                fixed_time_label: 'Nakatakdang Oras:',
+                save_frame_settings: 'I-save ang Mga Setting ng Frame',
+                frame_settings_saved: 'Na-save ang mga setting ng frame',
                 title: 'Pagsasaayos ng Network',
                 saved_wifi: 'Naka-save na Wi-Fi',
                 new_wifi: 'Bagong Wi-Fi',
@@ -596,6 +788,16 @@
                 save: 'I-save'
             },
             'fr-FR': {
+                frame_section_title: 'Paramètres du cadre',
+                tz_label: 'Fuseau horaire :',
+                refresh_label: 'Rafraîchissement auto :',
+                refresh_mode_off: 'Désactivé',
+                refresh_mode_interval: 'Intervalle',
+                refresh_mode_fixed: 'Heure fixe',
+                interval_minutes_label: 'Intervalle (minutes) :',
+                fixed_time_label: 'Heure fixe :',
+                save_frame_settings: 'Enregistrer les paramètres du cadre',
+                frame_settings_saved: 'Paramètres du cadre enregistrés',
                 title: 'Configuration réseau',
                 saved_wifi: 'Wi-Fi enregistrés',
                 new_wifi: 'Nouveau Wi-Fi',
@@ -617,6 +819,16 @@
                 save: 'Enregistrer'
             },
             'he-IL': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'הגדרות רשת',
                 saved_wifi: 'Wi-Fi שמורים',
                 new_wifi: 'Wi-Fi חדש',
@@ -638,6 +850,16 @@
                 save: 'שמור'
             },
             'hi-IN': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'नेटवर्क कॉन्फ़िगरेशन',
                 saved_wifi: 'सहेजे गए Wi-Fi',
                 new_wifi: 'नया Wi-Fi',
@@ -659,6 +881,16 @@
                 save: 'सहेजें'
             },
             'hr-HR': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'Konfiguracija mreže',
                 saved_wifi: 'Spremljene Wi-Fi mreže',
                 new_wifi: 'Nova Wi-Fi mreža',
@@ -680,6 +912,16 @@
                 save: 'Spremi'
             },
             'hu-HU': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'Hálózati konfiguráció',
                 saved_wifi: 'Mentett Wi-Fi hálózatok',
                 new_wifi: 'Új Wi-Fi hálózat',
@@ -701,6 +943,16 @@
                 save: 'Mentés'
             },
             'id-ID': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'Konfigurasi Jaringan',
                 saved_wifi: 'Wi-Fi Tersimpan',
                 new_wifi: 'Wi-Fi Baru',
@@ -722,6 +974,16 @@
                 save: 'Simpan'
             },
             'it-IT': {
+                frame_section_title: 'Impostazioni cornice',
+                tz_label: 'Fuso orario:',
+                refresh_label: 'Aggiornamento automatico:',
+                refresh_mode_off: 'Disattivato',
+                refresh_mode_interval: 'Intervallo',
+                refresh_mode_fixed: 'Ora fissa',
+                interval_minutes_label: 'Intervallo (minuti):',
+                fixed_time_label: 'Ora fissa:',
+                save_frame_settings: 'Salva impostazioni cornice',
+                frame_settings_saved: 'Impostazioni cornice salvate',
                 title: 'Configurazione di rete',
                 saved_wifi: 'Wi-Fi salvate',
                 new_wifi: 'Nuova Wi-Fi',
@@ -743,6 +1005,16 @@
                 save: 'Salva'
             },
             'ja-JP': {
+                frame_section_title: 'フレーム設定',
+                tz_label: 'タイムゾーン：',
+                refresh_label: '自動更新：',
+                refresh_mode_off: 'オフ',
+                refresh_mode_interval: '間隔',
+                refresh_mode_fixed: '固定時刻',
+                interval_minutes_label: '間隔（分）：',
+                fixed_time_label: '固定時刻：',
+                save_frame_settings: 'フレーム設定を保存',
+                frame_settings_saved: 'フレーム設定を保存しました',
                 title: 'ネットワーク設定',
                 saved_wifi: '保存済みのWi-Fi',
                 new_wifi: '新しいWi-Fi',
@@ -764,6 +1036,16 @@
                 save: '保存'
             },
             'ko-KR': {
+                frame_section_title: '프레임 설정',
+                tz_label: '시간대:',
+                refresh_label: '자동 새로 고침:',
+                refresh_mode_off: '끔',
+                refresh_mode_interval: '간격',
+                refresh_mode_fixed: '고정 시간',
+                interval_minutes_label: '간격(분):',
+                fixed_time_label: '고정 시간:',
+                save_frame_settings: '프레임 설정 저장',
+                frame_settings_saved: '프레임 설정이 저장되었습니다',
                 title: '네트워크 구성',
                 saved_wifi: '저장된 Wi-Fi',
                 new_wifi: '새 Wi-Fi',
@@ -785,6 +1067,16 @@
                 save: '저장'
             },
             'ms-MY': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'Konfigurasi Rangkaian',
                 saved_wifi: 'Wi-Fi Tersimpan',
                 new_wifi: 'Wi-Fi Baharu',
@@ -806,6 +1098,16 @@
                 save: 'Simpan'
             },
             'nb-NO': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'Nettverkskonfigurasjon',
                 saved_wifi: 'Lagrede Wi-Fi',
                 new_wifi: 'Nytt Wi-Fi',
@@ -827,6 +1129,16 @@
                 save: 'Lagre'
             },
             'nl-NL': {
+                frame_section_title: 'Fotokader-instellingen',
+                tz_label: 'Tijdzone:',
+                refresh_label: 'Automatische verversing:',
+                refresh_mode_off: 'Uit',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Vaste tijd',
+                interval_minutes_label: 'Interval (minuten):',
+                fixed_time_label: 'Vaste tijd:',
+                save_frame_settings: 'Fotokader-instellingen opslaan',
+                frame_settings_saved: 'Fotokader-instellingen opgeslagen',
                 title: 'Netwerkconfiguratie',
                 saved_wifi: 'Opgeslagen Wi-Fi',
                 new_wifi: 'Nieuwe Wi-Fi',
@@ -848,6 +1160,16 @@
                 save: 'Opslaan'
             },
             'pl-PL': {
+                frame_section_title: 'Ustawienia ramki',
+                tz_label: 'Strefa czasowa:',
+                refresh_label: 'Automatyczne odświeżanie:',
+                refresh_mode_off: 'Wyłączony',
+                refresh_mode_interval: 'Interwał',
+                refresh_mode_fixed: 'Stała godzina',
+                interval_minutes_label: 'Interwał (minuty):',
+                fixed_time_label: 'Stała godzina:',
+                save_frame_settings: 'Zapisz ustawienia ramki',
+                frame_settings_saved: 'Ustawienia ramki zapisane',
                 title: 'Konfiguracja sieci',
                 saved_wifi: 'Zapisane Wi-Fi',
                 new_wifi: 'Nowe Wi-Fi',
@@ -869,6 +1191,16 @@
                 save: 'Zapisz'
             },
             'pt-PT': {
+                frame_section_title: 'Definições da moldura',
+                tz_label: 'Fuso horário:',
+                refresh_label: 'Atualização automática:',
+                refresh_mode_off: 'Desativado',
+                refresh_mode_interval: 'Intervalo',
+                refresh_mode_fixed: 'Hora fixa',
+                interval_minutes_label: 'Intervalo (minutos):',
+                fixed_time_label: 'Hora fixa:',
+                save_frame_settings: 'Guardar definições da moldura',
+                frame_settings_saved: 'Definições da moldura guardadas',
                 title: 'Configuração de rede',
                 saved_wifi: 'Wi-Fi guardadas',
                 new_wifi: 'Nova Wi-Fi',
@@ -890,6 +1222,16 @@
                 save: 'Guardar'
             },
             'ro-RO': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'Configurare rețea',
                 saved_wifi: 'Wi-Fi salvate',
                 new_wifi: 'Wi-Fi nou',
@@ -911,6 +1253,16 @@
                 save: 'Salvare'
             },
             'ru-RU': {
+                frame_section_title: 'Настройки фоторамки',
+                tz_label: 'Часовой пояс:',
+                refresh_label: 'Автообновление:',
+                refresh_mode_off: 'Выкл.',
+                refresh_mode_interval: 'Интервал',
+                refresh_mode_fixed: 'Фиксированное время',
+                interval_minutes_label: 'Интервал (минут):',
+                fixed_time_label: 'Фиксированное время:',
+                save_frame_settings: 'Сохранить настройки рамки',
+                frame_settings_saved: 'Настройки рамки сохранены',
                 title: 'Настройка сети',
                 saved_wifi: 'Сохраненные Wi-Fi',
                 new_wifi: 'Новая Wi-Fi',
@@ -932,6 +1284,16 @@
                 save: 'Сохранить'
             },
             'sk-SK': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'Konfigurácia siete',
                 saved_wifi: 'Uložené Wi-Fi',
                 new_wifi: 'Nové Wi-Fi',
@@ -953,6 +1315,16 @@
                 save: 'Uložiť'
             },
             'sl-SI': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'Konfiguracija omrežja',
                 saved_wifi: 'Shranjeni Wi-Fi',
                 new_wifi: 'Nov Wi-Fi',
@@ -974,6 +1346,16 @@
                 save: 'Shrani'
             },
             'sr-RS': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'Конфигурација мреже',
                 saved_wifi: 'Сачуване Wi-Fi мреже',
                 new_wifi: 'Нова Wi-Fi мрежа',
@@ -995,6 +1377,16 @@
                 save: 'Сачувај'
             },
             'sv-SE': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'Nätverkskonfiguration',
                 saved_wifi: 'Sparade Wi-Fi',
                 new_wifi: 'Nytt Wi-Fi',
@@ -1016,6 +1408,16 @@
                 save: 'Spara'
             },
             'th-TH': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'การกำหนดค่าเครือข่าย',
                 saved_wifi: 'Wi-Fi ที่บันทึกไว้',
                 new_wifi: 'Wi-Fi ใหม่',
@@ -1037,6 +1439,16 @@
                 save: 'บันทึก'
             },
             'tr-TR': {
+                frame_section_title: 'Çerçeve Ayarları',
+                tz_label: 'Saat dilimi:',
+                refresh_label: 'Otomatik yenileme:',
+                refresh_mode_off: 'Kapalı',
+                refresh_mode_interval: 'Aralık',
+                refresh_mode_fixed: 'Sabit saat',
+                interval_minutes_label: 'Aralık (dakika):',
+                fixed_time_label: 'Sabit saat:',
+                save_frame_settings: 'Çerçeve ayarlarını kaydet',
+                frame_settings_saved: 'Çerçeve ayarları kaydedildi',
                 title: 'Ağ Yapılandırması',
                 saved_wifi: 'Kaydedilmiş Wi-Fi',
                 new_wifi: 'Yeni Wi-Fi',
@@ -1058,6 +1470,16 @@
                 save: 'Kaydet'
             },
             'uk-UA': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'Налаштування мережі',
                 saved_wifi: 'Збережені Wi-Fi',
                 new_wifi: 'Нова Wi-Fi',
@@ -1079,6 +1501,16 @@
                 save: 'Зберегти'
             },
             'vi-VN': {
+                frame_section_title: 'Frame Settings',
+                tz_label: 'Timezone:',
+                refresh_label: 'Auto Refresh:',
+                refresh_mode_off: 'Off',
+                refresh_mode_interval: 'Interval',
+                refresh_mode_fixed: 'Fixed Time',
+                interval_minutes_label: 'Interval (minutes):',
+                fixed_time_label: 'Fixed Time:',
+                save_frame_settings: 'Save Frame Settings',
+                frame_settings_saved: 'Frame settings saved',
                 title: 'Cấu hình mạng',
                 saved_wifi: 'Wi-Fi đã lưu',
                 new_wifi: 'Wi-Fi mới',
@@ -1100,6 +1532,16 @@
                 save: 'Lưu'
             },
             'zh-CN': {
+                frame_section_title: '相框设置',
+                tz_label: '时区：',
+                refresh_label: '自动刷新：',
+                refresh_mode_off: '关闭',
+                refresh_mode_interval: '按间隔',
+                refresh_mode_fixed: '固定时间',
+                interval_minutes_label: '间隔（分钟）：',
+                fixed_time_label: '固定时间：',
+                save_frame_settings: '保存相框设置',
+                frame_settings_saved: '相框设置已保存',
                 title: '网络配置',
                 saved_wifi: '已保存的 Wi-Fi',
                 new_wifi: '新的 Wi-Fi',
@@ -1121,6 +1563,16 @@
                 save: '保存'
             },
             'zh-TW': {
+                frame_section_title: '相框設定',
+                tz_label: '時區：',
+                refresh_label: '自動重新整理：',
+                refresh_mode_off: '關閉',
+                refresh_mode_interval: '按間隔',
+                refresh_mode_fixed: '固定時間',
+                interval_minutes_label: '間隔（分鐘）：',
+                fixed_time_label: '固定時間：',
+                save_frame_settings: '儲存相框設定',
+                frame_settings_saved: '相框設定已儲存',
                 title: '網路設定',
                 saved_wifi: '已儲存的 Wi-Fi',
                 new_wifi: '新的 Wi-Fi',
@@ -1529,9 +1981,117 @@
             
             // Show selected tab content
             document.getElementById(tabName + '-tab').classList.add('active');
-            
+
             // Activate selected tab
             document.querySelector(`.tab[onclick="switchTab('${tabName}')"]`).classList.add('active');
+
+            // Refresh frame settings from the device when entering Other tab
+            if (tabName === 'other') {
+                loadFrameSettings();
+            }
+        }
+
+        /**
+         * Show/hide the interval / fixed-time input rows based on the
+         * selected auto refresh mode.
+         */
+        function onFrameRefreshModeChange() {
+            const mode = parseInt(document.getElementById('frame_refresh_mode').value, 10);
+            document.getElementById('frame_refresh_interval_row').style.display =
+                mode === 1 ? 'block' : 'none';
+            document.getElementById('frame_refresh_time_row').style.display =
+                mode === 2 ? 'block' : 'none';
+        }
+
+        /**
+         * Load current frame settings from the device and fill the form
+         */
+        async function loadFrameSettings() {
+            try {
+                const response = await fetch('/frame-settings');
+                const data = await response.json();
+                if (data.success === false) {
+                    // Backend not ready yet (callbacks not registered).
+                    console.warn('Frame settings not ready:', data.error);
+                    return;
+                }
+                if (data.tz) {
+                    document.getElementById('frame_tz').value = data.tz;
+                }
+                if (data.refresh_mode !== undefined) {
+                    document.getElementById('frame_refresh_mode').value =
+                        String(data.refresh_mode);
+                }
+                if (data.refresh_interval_minutes !== undefined) {
+                    document.getElementById('frame_refresh_interval').value =
+                        data.refresh_interval_minutes;
+                }
+                if (data.refresh_time !== undefined) {
+                    // minutes-of-day -> "HH:MM"
+                    const hh = String(Math.floor(data.refresh_time / 60)).padStart(2, '0');
+                    const mm = String(data.refresh_time % 60).padStart(2, '0');
+                    document.getElementById('frame_refresh_time').value = hh + ':' + mm;
+                }
+                onFrameRefreshModeChange();
+            } catch (err) {
+                console.error('Error loading frame settings:', err);
+            }
+        }
+
+        /**
+         * Save frame settings to the device (POST /frame-settings).
+         * The button is debounced for 2s to avoid double submits.
+         */
+        async function saveFrameSettings() {
+            const btn = document.getElementById('frame_settings_button');
+            const errEl = document.getElementById('frame_settings_error');
+            if (btn.disabled) {
+                return; // 2s anti-double-click guard
+            }
+            btn.disabled = true;
+            errEl.textContent = '';
+
+            const mode = parseInt(document.getElementById('frame_refresh_mode').value, 10);
+            let interval = parseInt(document.getElementById('frame_refresh_interval').value, 10);
+            if (isNaN(interval)) {
+                interval = 1440;
+            }
+            const timeVal = document.getElementById('frame_refresh_time').value; // "HH:MM"
+            let minutesOfDay = 0;
+            if (timeVal) {
+                const parts = timeVal.split(':');
+                minutesOfDay = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+            }
+
+            const payload = {
+                tz: document.getElementById('frame_tz').value,
+                refresh_mode: mode,
+                refresh_interval_minutes: interval,
+                refresh_time: minutesOfDay
+            };
+
+            try {
+                const response = await fetch('/frame-settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'Save failed');
+                }
+
+                const lang = document.getElementById('language').value;
+                showToast(translations[lang].frame_settings_saved);
+            } catch (err) {
+                errEl.textContent = err.message;
+            } finally {
+                // Debounce: re-enable after 2 seconds.
+                setTimeout(() => { btn.disabled = false; }, 2000);
+            }
         }
 
         /**
@@ -1601,6 +2161,7 @@
             loadSavedList();
             loadAPList();
             loadAdvancedConfig();
+            loadFrameSettings();
         });
 
         /**

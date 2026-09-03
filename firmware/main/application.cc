@@ -10,6 +10,7 @@
 #include "settings.h"
 #include "ui/rawdraw_ui_manager.h"
 #include "wifi_manager.h"
+#include "wifi_configuration_ap.h"
 
 #include <esp_mac.h>
 #include <esp_log.h>
@@ -428,6 +429,45 @@ void Application::Initialize() {
         rawdraw_ui_manager_->OnRemotePhotoStored();
     });
     remote_photo.Start();
+
+    // Web portal "Other" tab: expose frame settings (timezone + auto refresh)
+    // over the config-AP HTTP server. Query runs in the httpd handler context;
+    // save runs in a deferred task (both are fine for NVS/setenv access).
+    WifiManager::GetInstance().SetOnFrameSettingsQuery([]() {
+        FrameSettingsState state;
+        state.tz = FrameSettings::GetTz();
+        const FrameSettings::AutoRefreshConfig cfg = FrameSettings::GetAutoRefresh();
+        state.refresh_mode = cfg.mode;
+        // Normalize the NVS interval (value + unit) to minutes for the web UI.
+        state.refresh_interval_minutes =
+            cfg.unit == FrameSettings::kUnitHours ? cfg.interval * 60 : cfg.interval;
+        state.refresh_time = cfg.minutes_of_day;
+        return state;
+    });
+    WifiManager::GetInstance().SetOnFrameSettingsSave([](const FrameSettingsState& s) {
+        FrameSettings::SetTz(s.tz);
+        // SNTP always syncs in UTC; TZ only affects local display and the
+        // "fixed time" refresh semantics — apply it immediately.
+        setenv("TZ", s.tz.c_str(), 1);
+        tzset();
+        FrameSettings::AutoRefreshConfig cfg;
+        cfg.mode = s.refresh_mode;
+        // Best-fit unit for the NVS representation: store whole hours when
+        // the minutes value divides evenly (>= 60), minutes otherwise.
+        if (s.refresh_interval_minutes >= 60 &&
+            s.refresh_interval_minutes % 60 == 0) {
+            cfg.interval = s.refresh_interval_minutes / 60;
+            cfg.unit = FrameSettings::kUnitHours;
+        } else {
+            cfg.interval = s.refresh_interval_minutes;
+            cfg.unit = FrameSettings::kUnitMinutes;
+        }
+        cfg.minutes_of_day = s.refresh_time;
+        FrameSettings::SetAutoRefresh(cfg);
+        ESP_LOGI(kTag, "Frame settings saved from web: tz=%s mode=%d interval=%dmin time=%d",
+                 s.tz.c_str(), s.refresh_mode, s.refresh_interval_minutes,
+                 s.refresh_time);
+    });
 
     // Start network (non-blocking, WiFi connects asynchronously)
     board.RequestNetwork();
