@@ -112,6 +112,7 @@ idf_component_register(
         esp_partition
         fatfs
         esp_driver_i2s
+        esp_driver_usb_serial_jtag
         esp_http_client
         esp_https_ota
         json

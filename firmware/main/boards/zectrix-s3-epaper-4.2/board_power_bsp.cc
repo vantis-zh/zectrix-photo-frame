@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <driver/gpio.h>
+#include <driver/usb_serial_jtag.h>
 #include <esp_timer.h>
 #include <freertos/FreeRTOS.h>
 #include "board_power_bsp.h"
@@ -12,7 +13,7 @@ void BoardPowerBsp::PowerLedTask(void *arg) {
     gpio_conf.mode          = GPIO_MODE_OUTPUT;
     gpio_conf.pin_bit_mask  = (0x1ULL << GPIO_NUM_3);
     gpio_conf.pull_down_en  = GPIO_PULLDOWN_DISABLE;
-    gpio_conf.pull_up_en    = GPIO_PULLUP_ENABLE;
+    gpio_conf.pull_up_en    = GPIO_PULLUP_DISABLE;
     ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_config(&gpio_conf));
     for (;;) {
         if (self->led_override_enabled_.load(std::memory_order_relaxed)) {
@@ -33,6 +34,18 @@ void BoardPowerBsp::PowerLedTask(void *arg) {
             continue;
         }
 
+        // Dev/flash session: LED solid on while a USB host (Serial-JTAG) is
+        // attached. Covers plugging in to flash and the post-flash reboot;
+        // only the ROM download window itself stays dark (user code is not
+        // running there, so the pad state is beyond firmware control).
+        if (usb_serial_jtag_is_connected()) {
+            gpio_hold_dis((gpio_num_t)GPIO_NUM_3);
+            gpio_set_level(GPIO_NUM_3, 1);
+            gpio_hold_en((gpio_num_t)GPIO_NUM_3);
+            vTaskDelay(pdMS_TO_TICKS(500));
+            continue;
+        }
+
         ChargeStatus::Snapshot snap{};
         const bool has_status = self && self->charge_status_;
         if (has_status) {
@@ -42,24 +55,23 @@ void BoardPowerBsp::PowerLedTask(void *arg) {
         gpio_hold_dis((gpio_num_t)GPIO_NUM_3);
         if ((!has_status || (!snap.charging && !snap.full)) &&
             self->led_activity_pulses_.load(std::memory_order_relaxed) > 0) {
+            // Activity feedback: brief lit blip on wake/button press.
             self->led_activity_pulses_.fetch_sub(1, std::memory_order_relaxed);
-            gpio_set_level(GPIO_NUM_3, 0);
-            vTaskDelay(pdMS_TO_TICKS(120));
             gpio_set_level(GPIO_NUM_3, 1);
+            vTaskDelay(pdMS_TO_TICKS(120));
+            gpio_set_level(GPIO_NUM_3, 0);
             gpio_hold_en((gpio_num_t)GPIO_NUM_3);
             vTaskDelay(pdMS_TO_TICKS(180));
-        } else if (has_status && snap.full) {
-            gpio_set_level(GPIO_NUM_3, 0);
-            gpio_hold_en((gpio_num_t)GPIO_NUM_3);
-            vTaskDelay(pdMS_TO_TICKS(500));
         } else if (has_status && snap.charging) {
-            gpio_set_level(GPIO_NUM_3, 0);
-            vTaskDelay(pdMS_TO_TICKS(200));
+            // Charging: short lit blip every 3s as the charge indicator.
             gpio_set_level(GPIO_NUM_3, 1);
+            vTaskDelay(pdMS_TO_TICKS(200));
+            gpio_set_level(GPIO_NUM_3, 0);
             gpio_hold_en((gpio_num_t)GPIO_NUM_3);
             vTaskDelay(pdMS_TO_TICKS(2800));
         } else {
-            gpio_set_level(GPIO_NUM_3, 1);
+            // Idle / battery full / no charge IC: LED off (device at rest).
+            gpio_set_level(GPIO_NUM_3, 0);
             gpio_hold_en((gpio_num_t)GPIO_NUM_3);
             vTaskDelay(pdMS_TO_TICKS(500));
         }
