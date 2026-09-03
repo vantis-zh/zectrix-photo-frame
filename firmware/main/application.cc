@@ -442,6 +442,7 @@ void Application::Initialize() {
         state.refresh_interval_minutes =
             cfg.unit == FrameSettings::kUnitHours ? cfg.interval * 60 : cfg.interval;
         state.refresh_time = cfg.minutes_of_day;
+        state.image_source = RemotePhotoService::GetImageUrl();
         return state;
     });
     WifiManager::GetInstance().SetOnFrameSettingsSave([](const FrameSettingsState& s) {
@@ -464,9 +465,12 @@ void Application::Initialize() {
         }
         cfg.minutes_of_day = s.refresh_time;
         FrameSettings::SetAutoRefresh(cfg);
-        ESP_LOGI(kTag, "Frame settings saved from web: tz=%s mode=%d interval=%dmin time=%d",
+        // Image source: "" erases the NVS key and falls back to the built-in
+        // default (loremflickr); otherwise the URL template is stored as-is.
+        RemotePhotoService::SetImageUrl(s.image_source);
+        ESP_LOGI(kTag, "Frame settings saved from web: tz=%s mode=%d interval=%dmin time=%d src=%s",
                  s.tz.c_str(), s.refresh_mode, s.refresh_interval_minutes,
-                 s.refresh_time);
+                 s.refresh_time, s.image_source.c_str());
     });
 
     // Start network (non-blocking, WiFi connects asynchronously)

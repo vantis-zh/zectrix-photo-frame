@@ -30,6 +30,10 @@ struct FrameSettingsState {
     int refresh_mode = 0;
     int refresh_interval_minutes = 1440;
     int refresh_time = 0;
+    // Effective image source URL ("" = built-in default). POST semantics:
+    // "" resets to the default source; otherwise must be http(s) URL with
+    // optional {W}/{H} placeholders (see RemotePhotoService::SetImageUrl).
+    std::string image_source;
 };
 
 /**

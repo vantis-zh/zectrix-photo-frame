@@ -758,6 +758,7 @@ void WifiConfigurationAp::StartWebServer()
             cJSON_AddNumberToObject(json, "refresh_mode", state.refresh_mode);
             cJSON_AddNumberToObject(json, "refresh_interval_minutes", state.refresh_interval_minutes);
             cJSON_AddNumberToObject(json, "refresh_time", state.refresh_time);
+            cJSON_AddStringToObject(json, "image_source", state.image_source.c_str());
 
             char *json_str = cJSON_PrintUnformatted(json);
             cJSON_Delete(json);
@@ -864,6 +865,35 @@ void WifiConfigurationAp::StartWebServer()
                 }
             }
 
+            // Image source: "" resets to the built-in default; otherwise a
+            // http(s) URL (<=127 printable ASCII bytes, {W}/{H} allowed).
+            // Key absent = untouched, resolved from the query callback below.
+            std::string image_source;
+            bool has_image_source = false;
+            if (error.empty()) {
+                cJSON *src_item = cJSON_GetObjectItemCaseSensitive(json, "image_source");
+                has_image_source = (src_item != NULL);
+                if (cJSON_IsString(src_item) && src_item->valuestring != NULL) {
+                    image_source = src_item->valuestring;
+                }
+                if (!image_source.empty()) {
+                    if (image_source.size() >= 128) {
+                        error = "Invalid image source";
+                    } else if (image_source.rfind("http://", 0) != 0 &&
+                               image_source.rfind("https://", 0) != 0) {
+                        error = "Invalid image source";
+                    } else {
+                        for (char c : image_source) {
+                            if (static_cast<unsigned char>(c) < 0x20 ||
+                                static_cast<unsigned char>(c) > 0x7E) {
+                                error = "Invalid image source";
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
             if (!error.empty()) {
                 cJSON_Delete(json);
                 httpd_resp_set_type(req, "application/json");
@@ -877,6 +907,12 @@ void WifiConfigurationAp::StartWebServer()
             auto* this_ = static_cast<WifiConfigurationAp*>(req->user_ctx);
             cJSON_Delete(json);
 
+            // Image source untouched by this request: carry the current value
+            // through so the save callback can re-apply the full state.
+            if (!has_image_source && this_->on_frame_settings_query_) {
+                image_source = this_->on_frame_settings_query_().image_source;
+            }
+
             // Send the success response first, then apply via the deferred
             // save callback (200 ms, same pattern as /device-settings).
             httpd_resp_set_type(req, "application/json");
@@ -884,8 +920,8 @@ void WifiConfigurationAp::StartWebServer()
             httpd_resp_set_hdr(req, "Connection", "close");
             httpd_resp_send(req, "{\"success\":true}", HTTPD_RESP_USE_STRLEN);
 
-            ESP_LOGI(TAG, "Frame settings save requested: tz=%s mode=%d interval=%dmin time=%d",
-                     tz.c_str(), mode, interval, minutes_of_day);
+            ESP_LOGI(TAG, "Frame settings save requested: tz=%s mode=%d interval=%dmin time=%d src=%s",
+                     tz.c_str(), mode, interval, minutes_of_day, image_source.c_str());
 
             // Heap-allocated context for the deferred task. Ownership is
             // transferred to the task: it deletes the context after running
@@ -901,6 +937,7 @@ void WifiConfigurationAp::StartWebServer()
             ctx->state.refresh_mode = mode;
             ctx->state.refresh_interval_minutes = interval;
             ctx->state.refresh_time = minutes_of_day;
+            ctx->state.image_source = image_source;
 
             BaseType_t create_ok = xTaskCreate([](void *p) {
                 vTaskDelay(pdMS_TO_TICKS(200));

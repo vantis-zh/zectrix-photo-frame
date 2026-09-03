@@ -387,6 +387,23 @@
                 <input type="time" id="frame_refresh_time" value="00:00">
             </p>
 
+            <!-- Image source: presets mirror the on-device cycle
+                 (application.cc kSources); "" = built-in default (loremflickr) -->
+            <p>
+                <label for="frame_image_source" data-lang="image_source_label">Image Source:</label>
+                <select id="frame_image_source" onchange="onFrameImageSourceChange()">
+                    <option value="" data-lang="image_source_default">Default (random photo)</option>
+                    <option value="http://192.168.1.10:8787/random.jpg" data-lang="image_source_src1">Source 1</option>
+                    <option value="https://picsum.photos/{W}/{H}" data-lang="image_source_src2">Source 2</option>
+                    <option value="__custom__" data-lang="image_source_custom">Custom URL</option>
+                </select>
+            </p>
+            <p id="frame_image_source_custom_row" style="display: none;">
+                <label for="frame_image_source_custom" data-lang="image_source_custom_label">Custom URL ({W}/{H} supported):</label>
+                <input type="text" id="frame_image_source_custom" maxlength="127"
+                       placeholder="https://example.com/photo/{W}/{H}">
+            </p>
+
             <p style="text-align: center;">
                 <input type="button" value="Save Frame Settings" id="frame_settings_button"
                        data-lang-value="save_frame_settings" onclick="saveFrameSettings()">
@@ -426,6 +443,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'تكوين الشبكة',
                 saved_wifi: 'Wi-Fi المحفوظة',
                 new_wifi: 'Wi-Fi جديد',
@@ -457,6 +480,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'Конфигурация на мрежата',
                 saved_wifi: 'Запазени Wi-Fi',
                 new_wifi: 'Нов Wi-Fi',
@@ -488,6 +517,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'Configuració de xarxa',
                 saved_wifi: 'Wi-Fi desats',
                 new_wifi: 'Nou Wi-Fi',
@@ -519,6 +554,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'Konfigurace sítě',
                 saved_wifi: 'Uložené Wi-Fi',
                 new_wifi: 'Nové Wi-Fi',
@@ -550,6 +591,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'Netværkskonfiguration',
                 saved_wifi: 'Gemte Wi-Fi',
                 new_wifi: 'Ny Wi-Fi',
@@ -581,6 +628,12 @@
                 fixed_time_label: 'Feste Zeit:',
                 save_frame_settings: 'Rahmeneinstellungen speichern',
                 frame_settings_saved: 'Rahmeneinstellungen gespeichert',
+                image_source_label: 'Bildquelle',
+                image_source_default: 'Standard (Zufallsfoto)',
+                image_source_src1: 'Quelle 1',
+                image_source_src2: 'Quelle 2',
+                image_source_custom: 'Benutzerdefinierte URL',
+                image_source_custom_label: 'Benutzerdefinierte URL ({W}/{H} unterstützt)',
                 title: 'Netzwerk-Konfiguration',
                 saved_wifi: 'Gespeicherte Wi-Fi-Verbindungen',
                 new_wifi: 'Neue Wi-Fi-Verbindung',
@@ -612,6 +665,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'Διαμόρφωση δικτύου',
                 saved_wifi: 'Αποθηκευμένα Wi-Fi',
                 new_wifi: 'Νέο Wi-Fi',
@@ -643,6 +702,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'Network Configuration',
                 saved_wifi: 'Saved Wi-Fi',
                 new_wifi: 'New Wi-Fi',
@@ -674,6 +739,12 @@
                 fixed_time_label: 'Hora fija:',
                 save_frame_settings: 'Guardar ajustes del marco',
                 frame_settings_saved: 'Ajustes del marco guardados',
+                image_source_label: 'Fuente de imágenes',
+                image_source_default: 'Predeterminada (foto aleatoria)',
+                image_source_src1: 'Fuente 1',
+                image_source_src2: 'Fuente 2',
+                image_source_custom: 'URL personalizada',
+                image_source_custom_label: 'URL personalizada (admite {W}/{H})',
                 title: 'Configuración de red',
                 saved_wifi: 'Wi-Fi guardados',
                 new_wifi: 'Nuevo Wi-Fi',
@@ -705,6 +776,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'پیکربندی شبکه',
                 saved_wifi: 'Wi-Fi ذخیره شده',
                 new_wifi: 'Wi-Fi جدید',
@@ -736,6 +813,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'Verkon määritys',
                 saved_wifi: 'Tallennetut Wi-Fi',
                 new_wifi: 'Uusi Wi-Fi',
@@ -767,6 +850,12 @@
                 fixed_time_label: 'Nakatakdang Oras:',
                 save_frame_settings: 'I-save ang Mga Setting ng Frame',
                 frame_settings_saved: 'Na-save ang mga setting ng frame',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'Pagsasaayos ng Network',
                 saved_wifi: 'Naka-save na Wi-Fi',
                 new_wifi: 'Bagong Wi-Fi',
@@ -798,6 +887,12 @@
                 fixed_time_label: 'Heure fixe :',
                 save_frame_settings: 'Enregistrer les paramètres du cadre',
                 frame_settings_saved: 'Paramètres du cadre enregistrés',
+                image_source_label: 'Source d\'images',
+                image_source_default: 'Par défaut (photo aléatoire)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'URL personnalisée',
+                image_source_custom_label: 'URL personnalisée ({W}/{H} pris en charge)',
                 title: 'Configuration réseau',
                 saved_wifi: 'Wi-Fi enregistrés',
                 new_wifi: 'Nouveau Wi-Fi',
@@ -829,6 +924,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'הגדרות רשת',
                 saved_wifi: 'Wi-Fi שמורים',
                 new_wifi: 'Wi-Fi חדש',
@@ -860,6 +961,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'नेटवर्क कॉन्फ़िगरेशन',
                 saved_wifi: 'सहेजे गए Wi-Fi',
                 new_wifi: 'नया Wi-Fi',
@@ -891,6 +998,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'Konfiguracija mreže',
                 saved_wifi: 'Spremljene Wi-Fi mreže',
                 new_wifi: 'Nova Wi-Fi mreža',
@@ -922,6 +1035,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'Hálózati konfiguráció',
                 saved_wifi: 'Mentett Wi-Fi hálózatok',
                 new_wifi: 'Új Wi-Fi hálózat',
@@ -953,6 +1072,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'Konfigurasi Jaringan',
                 saved_wifi: 'Wi-Fi Tersimpan',
                 new_wifi: 'Wi-Fi Baru',
@@ -984,6 +1109,12 @@
                 fixed_time_label: 'Ora fissa:',
                 save_frame_settings: 'Salva impostazioni cornice',
                 frame_settings_saved: 'Impostazioni cornice salvate',
+                image_source_label: 'Sorgente immagini',
+                image_source_default: 'Predefinita (foto casuale)',
+                image_source_src1: 'Sorgente 1',
+                image_source_src2: 'Sorgente 2',
+                image_source_custom: 'URL personalizzato',
+                image_source_custom_label: 'URL personalizzato (supporta {W}/{H})',
                 title: 'Configurazione di rete',
                 saved_wifi: 'Wi-Fi salvate',
                 new_wifi: 'Nuova Wi-Fi',
@@ -1015,6 +1146,12 @@
                 fixed_time_label: '固定時刻：',
                 save_frame_settings: 'フレーム設定を保存',
                 frame_settings_saved: 'フレーム設定を保存しました',
+                image_source_label: '画像ソース',
+                image_source_default: 'デフォルト（ランダム画像）',
+                image_source_src1: 'ソース 1',
+                image_source_src2: 'ソース 2',
+                image_source_custom: 'カスタム URL',
+                image_source_custom_label: 'カスタム URL（{W}/{H} 対応）',
                 title: 'ネットワーク設定',
                 saved_wifi: '保存済みのWi-Fi',
                 new_wifi: '新しいWi-Fi',
@@ -1046,6 +1183,12 @@
                 fixed_time_label: '고정 시간:',
                 save_frame_settings: '프레임 설정 저장',
                 frame_settings_saved: '프레임 설정이 저장되었습니다',
+                image_source_label: '이미지 소스',
+                image_source_default: '기본 (랜덤 사진)',
+                image_source_src1: '소스 1',
+                image_source_src2: '소스 2',
+                image_source_custom: '사용자 지정 URL',
+                image_source_custom_label: '사용자 지정 URL ({W}/{H} 지원)',
                 title: '네트워크 구성',
                 saved_wifi: '저장된 Wi-Fi',
                 new_wifi: '새 Wi-Fi',
@@ -1077,6 +1220,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'Konfigurasi Rangkaian',
                 saved_wifi: 'Wi-Fi Tersimpan',
                 new_wifi: 'Wi-Fi Baharu',
@@ -1108,6 +1257,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'Nettverkskonfigurasjon',
                 saved_wifi: 'Lagrede Wi-Fi',
                 new_wifi: 'Nytt Wi-Fi',
@@ -1139,6 +1294,12 @@
                 fixed_time_label: 'Vaste tijd:',
                 save_frame_settings: 'Fotokader-instellingen opslaan',
                 frame_settings_saved: 'Fotokader-instellingen opgeslagen',
+                image_source_label: 'Afbeeldingsbron',
+                image_source_default: 'Standaard (willekeurige foto)',
+                image_source_src1: 'Bron 1',
+                image_source_src2: 'Bron 2',
+                image_source_custom: 'Aangepaste URL',
+                image_source_custom_label: 'Aangepaste URL ({W}/{H} ondersteund)',
                 title: 'Netwerkconfiguratie',
                 saved_wifi: 'Opgeslagen Wi-Fi',
                 new_wifi: 'Nieuwe Wi-Fi',
@@ -1170,6 +1331,12 @@
                 fixed_time_label: 'Stała godzina:',
                 save_frame_settings: 'Zapisz ustawienia ramki',
                 frame_settings_saved: 'Ustawienia ramki zapisane',
+                image_source_label: 'Źródło obrazów',
+                image_source_default: 'Domyślne (losowe zdjęcie)',
+                image_source_src1: 'Źródło 1',
+                image_source_src2: 'Źródło 2',
+                image_source_custom: 'Własny URL',
+                image_source_custom_label: 'Własny URL (obsługa {W}/{H})',
                 title: 'Konfiguracja sieci',
                 saved_wifi: 'Zapisane Wi-Fi',
                 new_wifi: 'Nowe Wi-Fi',
@@ -1201,6 +1368,12 @@
                 fixed_time_label: 'Hora fixa:',
                 save_frame_settings: 'Guardar definições da moldura',
                 frame_settings_saved: 'Definições da moldura guardadas',
+                image_source_label: 'Fonte de imagens',
+                image_source_default: 'Predefinida (foto aleatória)',
+                image_source_src1: 'Fonte 1',
+                image_source_src2: 'Fonte 2',
+                image_source_custom: 'URL personalizada',
+                image_source_custom_label: 'URL personalizada (suporta {W}/{H})',
                 title: 'Configuração de rede',
                 saved_wifi: 'Wi-Fi guardadas',
                 new_wifi: 'Nova Wi-Fi',
@@ -1232,6 +1405,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'Configurare rețea',
                 saved_wifi: 'Wi-Fi salvate',
                 new_wifi: 'Wi-Fi nou',
@@ -1263,6 +1442,12 @@
                 fixed_time_label: 'Фиксированное время:',
                 save_frame_settings: 'Сохранить настройки рамки',
                 frame_settings_saved: 'Настройки рамки сохранены',
+                image_source_label: 'Источник изображений',
+                image_source_default: 'По умолчанию (случайное фото)',
+                image_source_src1: 'Источник 1',
+                image_source_src2: 'Источник 2',
+                image_source_custom: 'Свой URL',
+                image_source_custom_label: 'Свой URL (поддержка {W}/{H})',
                 title: 'Настройка сети',
                 saved_wifi: 'Сохраненные Wi-Fi',
                 new_wifi: 'Новая Wi-Fi',
@@ -1294,6 +1479,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'Konfigurácia siete',
                 saved_wifi: 'Uložené Wi-Fi',
                 new_wifi: 'Nové Wi-Fi',
@@ -1325,6 +1516,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'Konfiguracija omrežja',
                 saved_wifi: 'Shranjeni Wi-Fi',
                 new_wifi: 'Nov Wi-Fi',
@@ -1356,6 +1553,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'Конфигурација мреже',
                 saved_wifi: 'Сачуване Wi-Fi мреже',
                 new_wifi: 'Нова Wi-Fi мрежа',
@@ -1387,6 +1590,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'Nätverkskonfiguration',
                 saved_wifi: 'Sparade Wi-Fi',
                 new_wifi: 'Nytt Wi-Fi',
@@ -1418,6 +1627,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'การกำหนดค่าเครือข่าย',
                 saved_wifi: 'Wi-Fi ที่บันทึกไว้',
                 new_wifi: 'Wi-Fi ใหม่',
@@ -1449,6 +1664,12 @@
                 fixed_time_label: 'Sabit saat:',
                 save_frame_settings: 'Çerçeve ayarlarını kaydet',
                 frame_settings_saved: 'Çerçeve ayarları kaydedildi',
+                image_source_label: 'Görüntü kaynağı',
+                image_source_default: 'Varsayılan (rastgele fotoğraf)',
+                image_source_src1: 'Kaynak 1',
+                image_source_src2: 'Kaynak 2',
+                image_source_custom: 'Özel URL',
+                image_source_custom_label: 'Özel URL ({W}/{H} desteklenir)',
                 title: 'Ağ Yapılandırması',
                 saved_wifi: 'Kaydedilmiş Wi-Fi',
                 new_wifi: 'Yeni Wi-Fi',
@@ -1480,6 +1701,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'Налаштування мережі',
                 saved_wifi: 'Збережені Wi-Fi',
                 new_wifi: 'Нова Wi-Fi',
@@ -1511,6 +1738,12 @@
                 fixed_time_label: 'Fixed Time:',
                 save_frame_settings: 'Save Frame Settings',
                 frame_settings_saved: 'Frame settings saved',
+                image_source_label: 'Image Source',
+                image_source_default: 'Default (random photo)',
+                image_source_src1: 'Source 1',
+                image_source_src2: 'Source 2',
+                image_source_custom: 'Custom URL',
+                image_source_custom_label: 'Custom URL ({W}/{H} supported)',
                 title: 'Cấu hình mạng',
                 saved_wifi: 'Wi-Fi đã lưu',
                 new_wifi: 'Wi-Fi mới',
@@ -1542,6 +1775,12 @@
                 fixed_time_label: '固定时间：',
                 save_frame_settings: '保存相框设置',
                 frame_settings_saved: '相框设置已保存',
+                image_source_label: '图片来源',
+                image_source_default: '默认（随机图）',
+                image_source_src1: '图源 1',
+                image_source_src2: '图源 2',
+                image_source_custom: '自定义 URL',
+                image_source_custom_label: '自定义 URL（支持 {W}/{H}）',
                 title: '网络配置',
                 saved_wifi: '已保存的 Wi-Fi',
                 new_wifi: '新的 Wi-Fi',
@@ -1573,6 +1812,12 @@
                 fixed_time_label: '固定時間：',
                 save_frame_settings: '儲存相框設定',
                 frame_settings_saved: '相框設定已儲存',
+                image_source_label: '圖片來源',
+                image_source_default: '預設（隨機圖）',
+                image_source_src1: '圖源 1',
+                image_source_src2: '圖源 2',
+                image_source_custom: '自訂 URL',
+                image_source_custom_label: '自訂 URL（支援 {W}/{H}）',
                 title: '網路設定',
                 saved_wifi: '已儲存的 Wi-Fi',
                 new_wifi: '新的 Wi-Fi',
@@ -2004,6 +2249,15 @@
         }
 
         /**
+         * Show the custom-URL input only when "Custom URL" is selected
+         */
+        function onFrameImageSourceChange() {
+            const sel = document.getElementById('frame_image_source');
+            document.getElementById('frame_image_source_custom_row').style.display =
+                sel.value === '__custom__' ? 'block' : 'none';
+        }
+
+        /**
          * Load current frame settings from the device and fill the form
          */
         async function loadFrameSettings() {
@@ -2031,6 +2285,30 @@
                     const hh = String(Math.floor(data.refresh_time / 60)).padStart(2, '0');
                     const mm = String(data.refresh_time % 60).padStart(2, '0');
                     document.getElementById('frame_refresh_time').value = hh + ':' + mm;
+                }
+                // Image source: match a preset option, map the effective
+                // default URL back to the "" (Default) option, anything else
+                // lands in the custom input.
+                if (data.image_source !== undefined) {
+                    const sel = document.getElementById('frame_image_source');
+                    const src = data.image_source || '';
+                    let matched = false;
+                    for (const opt of sel.options) {
+                        if (opt.value !== '__custom__' && opt.value === src) {
+                            sel.value = src;
+                            matched = true;
+                            break;
+                        }
+                    }
+                    if (!matched && (src === '' || src.indexOf('loremflickr') !== -1)) {
+                        sel.value = '';
+                        matched = true;
+                    }
+                    if (!matched) {
+                        sel.value = '__custom__';
+                        document.getElementById('frame_image_source_custom').value = src;
+                    }
+                    onFrameImageSourceChange();
                 }
                 onFrameRefreshModeChange();
             } catch (err) {
@@ -2063,11 +2341,24 @@
                 minutesOfDay = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
             }
 
+            // Image source: preset value directly; custom takes the input.
+            let imageSource = document.getElementById('frame_image_source').value;
+            if (imageSource === '__custom__') {
+                imageSource =
+                    document.getElementById('frame_image_source_custom').value.trim();
+                if (imageSource && !/^https?:\/\//.test(imageSource)) {
+                    errEl.textContent = 'Image source must start with http:// or https://';
+                    btn.disabled = false;
+                    return;
+                }
+            }
+
             const payload = {
                 tz: document.getElementById('frame_tz').value,
                 refresh_mode: mode,
                 refresh_interval_minutes: interval,
-                refresh_time: minutesOfDay
+                refresh_time: minutesOfDay,
+                image_source: imageSource
             };
 
             try {
